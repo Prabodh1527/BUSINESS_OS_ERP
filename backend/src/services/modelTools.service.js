@@ -145,9 +145,12 @@ export function identifyRequiredTools(userQuery) {
   if (q.includes("customer") || q.includes("client") || q.includes("crm") || q.includes("retention") || q.includes("vip")) {
     toolsToCall.add("get_customers_and_retention");
   }
-  if (q.includes("health") || q.includes("score") || q.includes("performance") || q.includes("overview") || q.includes("summary")) {
+  if (q.includes("health") || q.includes("score") || q.includes("performance") || q.includes("overview") || q.includes("summary") || q.includes("briefing") || q.includes("morning") || q.includes("executive")) {
     toolsToCall.add("get_business_health_score");
     toolsToCall.add("get_revenue_and_invoices");
+    toolsToCall.add("get_appointments_and_schedule");
+    toolsToCall.add("get_inventory_and_stock");
+    toolsToCall.add("get_workforce_and_attendance");
   }
   if (q.includes("priorit") || q.includes("recommend") || q.includes("what should") || q.includes("action") || q.includes("fix") || q.includes("improve")) {
     toolsToCall.add("get_action_recommendations");

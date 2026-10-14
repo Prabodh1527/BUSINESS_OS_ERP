@@ -34,6 +34,7 @@ import aiRoutes from "./routes/ai.routes.js";
 import auditLogRoutes from "./routes/auditLog.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
 import whatsappRoutes from "./routes/whatsapp.routes.js";
+import publicBookingRoutes from "./routes/publicBooking.routes.js";
 import { initializeConnectedTelegramBots } from "./services/telegramBot.service.js";
 import { startTelegramScheduler } from "./services/telegramScheduler.service.js";
 
@@ -130,6 +131,8 @@ app.use("/api/telegram", telegramRoutes);
 app.use("/telegram", telegramRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/whatsapp", whatsappRoutes);
+app.use("/api/public/booking", publicBookingRoutes);
+app.use("/public/booking", publicBookingRoutes);
 
 
 // ==========================================

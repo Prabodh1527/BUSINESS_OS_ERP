@@ -11,6 +11,10 @@ import {
   Download,
   Trash2,
   MessageSquare,
+  Globe,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -20,11 +24,12 @@ import {
 } from "@/api/appointments.api";
 
 export default function Appointments() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -227,6 +232,33 @@ export default function Appointments() {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {/* Public Booking Link Pill */}
+          <div className="flex items-center gap-1 rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-1">
+            <button
+              onClick={() => {
+                const tenantIdentifier = user?.tenantId || "default";
+                const url = `${window.location.origin}/book/${tenantIdentifier}`;
+                navigator.clipboard.writeText(url);
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 2500);
+              }}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition cursor-pointer"
+              title="Copy client booking link"
+            >
+              {copiedLink ? <Check size={13} className="text-emerald-400" /> : <Globe size={13} />}
+              <span>{copiedLink ? "Link Copied!" : "Public Booking Link"}</span>
+            </button>
+            <a
+              href={`/book/${user?.tenantId || "default"}`}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1 rounded-lg text-indigo-400 hover:text-white hover:bg-indigo-500/20 transition"
+              title="Open Public Booking Page in New Tab"
+            >
+              <ExternalLink size={13} />
+            </a>
+          </div>
+
           <Link
             to="/appointments/calendar"
             className="flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:border-indigo-500 hover:text-white transition"

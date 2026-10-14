@@ -5,6 +5,40 @@
 export function generateAnalystResponse(question, { metrics, health, insights, predictions, recommendations }) {
   const q = question.toLowerCase();
 
+  // 0. Executive Morning Briefing
+  if (
+    q.includes("briefing") ||
+    q.includes("morning") ||
+    q.includes("daily brief") ||
+    q.includes("executive brief")
+  ) {
+    const cancelRate = metrics.totalAppointments > 0 ? Math.round((metrics.cancelledAppointments / metrics.totalAppointments) * 100) : 0;
+    return `### 🌅 Executive Morning Briefing
+**Good morning! Here is your 60-second executive operational briefing:**
+
+#### 💰 1. Financial Snapshot
+* **Total Collections:** **₹${metrics.totalRevenue.toLocaleString("en-IN")}** (${metrics.paidInvoicesCount} settled invoices).
+* **Outstanding Cash:** **₹${metrics.pendingRevenue.toLocaleString("en-IN")}** across ${metrics.pendingInvoicesCount} open accounts (${metrics.overdueInvoicesCount} overdue).
+* **Net Margin:** **${metrics.profitMargin}%** (Net profit: ₹${metrics.netProfit.toLocaleString("en-IN")}).
+
+#### 📅 2. Operations & Schedule
+* **Upcoming Bookings:** **${metrics.upcomingAppointments} sessions** on the calendar.
+* **Cancellation Ratio:** ${cancelRate}% (${metrics.cancelledAppointments} cancellations).
+
+#### 📦 3. Stock & Supply Chain
+* **Inventory Health:** **${metrics.totalProducts} SKUs** active (Asset valuation: ₹${metrics.totalStockValue.toLocaleString("en-IN")}).
+* ${metrics.lowStockCount > 0 ? `⚠️ **Attention:** **${metrics.lowStockCount} items** need reordering.` : "✅ Physical catalog stock is healthy."}
+
+#### 👥 4. Team & Workforce
+* **Active Headcount:** **${metrics.totalEmployees} employees**.
+* **Late Shifts Tracked:** ${metrics.latePunches} delayed punches recorded.
+
+#### 🎯 Top Strategic Priority for Today:
+${recommendations[0]?.title || "Expedite recovery of pending invoices to optimize operating liquidity."}
+
+*You can click the speaker icon to listen to this briefing, or ask any follow-up question below!*`;
+  }
+
   // 1. Revenue / Sales / Income / Financials
   if (
     q.includes("revenue") ||

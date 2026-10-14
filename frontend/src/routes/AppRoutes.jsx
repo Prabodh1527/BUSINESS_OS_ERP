@@ -95,6 +95,9 @@ import Notifications from "@/modules/notifications/Notifications";
 // Files
 import Files from "@/modules/files/Files";
 
+// Public Booking Portal
+import PublicBookingPage from "@/modules/public/PublicBookingPage";
+
 import ProtectedRoute from "./ProtectedRoute";
 
 // ==========================================
@@ -223,6 +226,18 @@ export default function AppRoutes() {
       <Route
         path="/reset-password"
         element={<ResetPassword />}
+      />
+
+      {/* ========================================
+          PUBLIC CLIENT BOOKING PORTAL
+      ======================================== */}
+      <Route
+        path="/book/:tenantSlug"
+        element={<PublicBookingPage />}
+      />
+      <Route
+        path="/book"
+        element={<PublicBookingPage />}
       />
 
       {/* ========================================
