@@ -56,9 +56,57 @@ const employeeSchema = new mongoose.Schema(
       enum: ["ACTIVE", "ON_LEAVE", "TERMINATED", "INACTIVE"],
       default: "ACTIVE",
     },
-    notes: {
+    dob: {
       type: String,
       default: "",
+    },
+    gender: {
+      type: String,
+      default: "",
+    },
+    address: {
+      type: String,
+      default: "",
+    },
+    city: {
+      type: String,
+      default: "",
+    },
+    state: {
+      type: String,
+      default: "",
+    },
+    postalCode: {
+      type: String,
+      default: "",
+    },
+    emergencyRelationship: {
+      type: String,
+      default: "",
+    },
+    bankName: {
+      type: String,
+      default: "",
+    },
+    bankAccount: {
+      type: String,
+      default: "",
+    },
+    bankIfsc: {
+      type: String,
+      default: "",
+    },
+    avatar: {
+      type: String,
+      default: "",
+    },
+    themePreference: {
+      type: String,
+      default: "dark",
+    },
+    notificationsEnabled: {
+      type: Boolean,
+      default: true,
     },
     telegramChatId: {
       type: String,

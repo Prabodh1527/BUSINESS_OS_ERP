@@ -422,7 +422,12 @@ export default function Employees() {
                   className="hover:bg-slate-800/30 transition"
                 >
                   <td className="p-4">
-                    <div className="font-medium text-white">{employee.name}</div>
+                    <Link
+                      to={`/employees/profile?id=${employee._id}`}
+                      className="font-medium text-white hover:text-indigo-400 transition"
+                    >
+                      {employee.name}
+                    </Link>
                     <div className="text-xs text-slate-400 font-mono">
                       {employee.email || employee.phone || employee.employeeId}
                     </div>
@@ -457,13 +462,22 @@ export default function Employees() {
                   </td>
 
                   <td className="p-4 text-right">
-                    <button
-                      onClick={() => handleDelete(employee._id, employee.name)}
-                      className="rounded-lg border border-rose-500/30 p-2 text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
-                      title="Remove Staff"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        to={`/employees/profile?id=${employee._id}`}
+                        className="rounded-lg border border-slate-700 p-2 text-slate-300 hover:border-indigo-500 hover:text-white transition"
+                        title="View Full Profile"
+                      >
+                        <Eye size={15} className="text-indigo-400" />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(employee._id, employee.name)}
+                        className="rounded-lg border border-rose-500/30 p-2 text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                        title="Remove Staff"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

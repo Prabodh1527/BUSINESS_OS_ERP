@@ -54,17 +54,46 @@ router.patch("/me", async (req, res) => {
       return res.status(404).json({ success: false, message: "Employee profile not found." });
     }
 
+    const updateFields = {};
+    const allowed = [
+      "phone",
+      "dob",
+      "gender",
+      "address",
+      "city",
+      "state",
+      "postalCode",
+      "emergencyName",
+      "emergencyPhone",
+      "emergencyRelationship",
+      "bankName",
+      "bankAccount",
+      "bankIfsc",
+      "avatar",
+      "themePreference",
+      "notificationsEnabled",
+    ];
+
+    allowed.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateFields[field] = req.body[field];
+      }
+    });
+
     const updated = await Employee.findOneAndUpdate(
       { _id: identity.employee._id, tenantId: req.tenantId },
-      {
-        $set: {
-          phone: String(req.body.phone || "").trim(),
-          emergencyName: String(req.body.emergencyName || "").trim(),
-          emergencyPhone: String(req.body.emergencyPhone || "").trim(),
-        },
-      },
+      { $set: updateFields },
       { new: true, runValidators: true }
     );
+
+    // Also sync phone or name to User model if present
+    if (identity.employee.email) {
+      const userUpdates = {};
+      if (req.body.phone) userUpdates.phone = req.body.phone;
+      if (Object.keys(userUpdates).length > 0) {
+        await User.updateOne({ email: identity.employee.email, tenantId: req.tenantId }, { $set: userUpdates });
+      }
+    }
 
     return res.status(200).json({ success: true, employee: updated, data: updated });
   } catch (error) {

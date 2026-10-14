@@ -225,3 +225,71 @@ export const sendLeaveDecisionEmail = async (leave) => {
     html,
   });
 };
+
+/**
+ * Template: Birthday & Work Anniversary Celebration Email with Dynamic Photo Banner
+ */
+export const sendCelebrationEmail = async ({
+  to,
+  employeeName,
+  companyName = "Business OS",
+  occasion = "BIRTHDAY",
+  message,
+  photoUrl,
+}) => {
+  if (!to) return false;
+  const isBday = String(occasion || "").toUpperCase().includes("BIRTHDAY");
+  const title = isBday ? "Happy Birthday! 🎂🎉" : "Happy Work Anniversary! 🏆✨";
+  const banner = photoUrl?.trim() || (isBday
+    ? "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&q=80"
+    : "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80");
+  
+  const greeting = message?.trim() || (isBday
+    ? `Wishing you a very Happy Birthday, ${employeeName}! May your special day be filled with happiness, success, and wonderful memories.`
+    : `Happy Work Anniversary, ${employeeName}! Thank you for your dedication, excellence, and valuable contributions to ${companyName}.`);
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; padding: 32px 16px; color: #f8fafc;">
+      <div style="max-width: 560px; margin: 0 auto; background: #111827; border: 1px solid #1f2937; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+        ${banner ? `
+          <div style="width: 100%; height: 220px; overflow: hidden; background: #1e1b4b; position: relative;">
+            <img src="${banner}" alt="Celebration" style="width: 100%; height: 100%; object-fit: cover;" />
+          </div>
+        ` : ''}
+        <div style="padding: 32px 28px; text-align: center;">
+          <span style="display: inline-block; padding: 6px 14px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 9999px; color: #a5b4fc; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">
+            ${isBday ? 'Birthday Celebration' : 'Milestone Anniversary'}
+          </span>
+          <h1 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0 0 12px 0; line-height: 1.25;">
+            ${title}
+          </h1>
+          <p style="color: #cbd5e1; font-size: 16px; font-weight: 600; margin: 0 0 20px 0;">
+            Dear <span style="color: #818cf8;">${employeeName}</span>,
+          </p>
+          <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 14px; padding: 22px; margin-bottom: 24px; text-align: left;">
+            <p style="color: #e2e8f0; font-size: 14px; line-height: 1.65; margin: 0; white-space: pre-line;">
+              ${greeting}
+            </p>
+          </div>
+          <p style="color: #94a3b8; font-size: 13px; margin: 0 0 6px 0;">
+            Warmest regards and best wishes,
+          </p>
+          <p style="color: #ffffff; font-size: 15px; font-weight: 700; margin: 0;">
+            Team ${companyName}
+          </p>
+        </div>
+        <div style="background: #0f172a; border-top: 1px solid #1f2937; padding: 14px; text-align: center;">
+          <p style="color: #64748b; font-size: 11px; margin: 0;">
+            Sent automatically by Business OS Enterprise Workspace
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return await sendSystemEmail({
+    to,
+    subject: `${title} - Warm wishes from ${companyName}`,
+    html,
+  });
+};

@@ -115,9 +115,14 @@ const employeeNavigation = [
     icon: BadgeCheck,
   },
   {
-    label: "My Profile",
-    path: "/employee/profile",
-    icon: UserCog,
+    label: "AI Copilot",
+    path: "/employee/ai",
+    icon: Bot,
+  },
+  {
+    label: "Settings",
+    path: "/employee/settings",
+    icon: Settings,
   },
 ];
 

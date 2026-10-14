@@ -59,6 +59,8 @@ import MyLeaves from "@/modules/employee/MyLeaves";
 import MyPayslips from "@/modules/employee/MyPayslips";
 import MyTasks from "@/modules/employee/MyTasks";
 import EmployeePortalProfile from "@/modules/employee/EmployeeProfile";
+import EmployeeSettings from "@/modules/employee/settings/EmployeeSettings";
+import EmployeeAIChat from "@/modules/employee/ai/EmployeeAIChat";
 import EmployeeNotifications from "@/modules/employee/components/EmployeeNotifications";
 
 // Reports
@@ -363,6 +365,14 @@ export default function AppRoutes() {
           element={<OwnerEmployeeProfile />}
         />
         <Route
+          path="/employees/profile/:id"
+          element={<OwnerEmployeeProfile />}
+        />
+        <Route
+          path="/employees/:id"
+          element={<OwnerEmployeeProfile />}
+        />
+        <Route
           path="/employees/attendance"
           element={<Attendance />}
         />
@@ -486,8 +496,16 @@ export default function AppRoutes() {
           element={<MyTasks />}
         />
         <Route
+          path="/employee/settings"
+          element={<EmployeeSettings />}
+        />
+        <Route
           path="/employee/profile"
-          element={<EmployeePortalProfile />}
+          element={<Navigate to="/employee/settings" replace />}
+        />
+        <Route
+          path="/employee/ai"
+          element={<EmployeeAIChat />}
         />
         <Route
           path="/employee/notifications"

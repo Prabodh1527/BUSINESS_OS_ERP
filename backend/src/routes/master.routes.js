@@ -36,4 +36,81 @@ router
   .patch(updateMaster)
   .delete(deleteMaster);
 
+// ==========================================
+// SEND CELEBRATION GREETING (EMAIL / WHATSAPP TEMPLATE)
+// POST /api/masters/send-greeting
+// ==========================================
+router.post("/send-greeting", async (req, res) => {
+  try {
+    const { sendCelebrationEmail } = await import("../utils/email.js");
+    const Employee = (await import("../models/employee.model.js")).default;
+    const Tenant = (await import("../models/Tenant.js")).default;
+
+    const {
+      employeeId,
+      email: targetEmail,
+      employeeName: targetName,
+      occasion = "BIRTHDAY",
+      message = "",
+      photoUrl = "",
+    } = req.body;
+
+    let recipientEmail = targetEmail;
+    let recipientName = targetName;
+
+    if (employeeId) {
+      const emp = await Employee.findOne({
+        _id: employeeId,
+        tenantId: req.tenantId,
+      });
+      if (emp) {
+        recipientEmail = recipientEmail || emp.email;
+        recipientName = recipientName || emp.name;
+      }
+    }
+
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Recipient employee email is required to send greeting.",
+      });
+    }
+
+    let companyName = "Business OS";
+    if (req.tenantId) {
+      const tenant = await Tenant.findById(req.tenantId);
+      if (tenant?.companyName) {
+        companyName = tenant.companyName;
+      }
+    }
+
+    const sent = await sendCelebrationEmail({
+      to: recipientEmail,
+      employeeName: recipientName || "Team Member",
+      companyName,
+      occasion,
+      message,
+      photoUrl,
+    });
+
+    if (!sent) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to dispatch email. Please check SMTP configuration in environment.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Celebration greeting successfully delivered to ${recipientName} (${recipientEmail}).`,
+    });
+  } catch (error) {
+    console.error("❌ Send Greeting Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to send greeting.",
+    });
+  }
+});
+
 export default router;

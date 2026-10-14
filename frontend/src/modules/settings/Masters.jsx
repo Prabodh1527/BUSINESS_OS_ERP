@@ -9,6 +9,10 @@ import {
   Settings2,
   Pencil,
   Loader2,
+  Cake,
+  Send,
+  Image,
+  Sparkles,
 } from "lucide-react";
 import API from "@/api/axios";
 
@@ -20,12 +24,15 @@ const masterTypes = [
   "Appointment Status",
   "Leave Type",
   "Tax",
+  "Birthday & Anniversary Wishes",
 ];
 
 const emptyForm = {
   type: "Services",
   name: "",
   details: "",
+  photoUrl: "",
+  channel: "Email",
 };
 
 function Masters() {
@@ -115,10 +122,17 @@ function Masters() {
   const openEditForm = (item) => {
     setEditingId(item.id);
 
+    const valObj =
+      typeof item.value === "object" && item.value !== null
+        ? item.value
+        : {};
+
     setForm({
       type: item.type,
       name: item.name,
-      details: item.details || "",
+      details: item.details || valObj.message || "",
+      photoUrl: valObj.photoUrl || "",
+      channel: valObj.channel || "Email",
     });
 
     setError("");
@@ -163,7 +177,14 @@ function Masters() {
         type: form.type,
         name: trimmedName,
         details: trimmedDetails,
-        value: trimmedDetails,
+        value:
+          form.type === "Birthday & Anniversary Wishes"
+            ? {
+                message: trimmedDetails,
+                photoUrl: form.photoUrl?.trim() || "",
+                channel: form.channel || "Email",
+              }
+            : trimmedDetails,
       };
 
       if (editingId) {
@@ -440,25 +461,117 @@ function Masters() {
               />
             </div>
 
-            {/* DETAILS */}
+            {/* DETAILS / CELEBRATION MESSAGE */}
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-slate-300">
-                Details
+                {form.type === "Birthday & Anniversary Wishes"
+                  ? "Greeting Message / Email Body"
+                  : "Details"}
                 <span className="ml-2 font-normal text-slate-500">
-                  Optional
+                  {form.type === "Birthday & Anniversary Wishes"
+                    ? "Supports {name} and {companyName} placeholders"
+                    : "Optional"}
                 </span>
               </label>
 
-              <input
-                type="text"
-                name="details"
-                value={form.details}
-                onChange={handleChange}
-                disabled={saving}
-                placeholder="e.g. ₹800 • 45 mins"
-                className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-indigo-500 disabled:opacity-50"
-              />
+              {form.type === "Birthday & Anniversary Wishes" ? (
+                <textarea
+                  rows={4}
+                  name="details"
+                  value={form.details}
+                  onChange={handleChange}
+                  disabled={saving}
+                  placeholder="e.g. Dear {name}, wishing you a joyful Birthday and a thriving year ahead! Best regards from team {companyName}."
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-indigo-500 disabled:opacity-50 resize-none leading-relaxed"
+                />
+              ) : (
+                <input
+                  type="text"
+                  name="details"
+                  value={form.details}
+                  onChange={handleChange}
+                  disabled={saving}
+                  placeholder="e.g. ₹800 • 45 mins"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-indigo-500 disabled:opacity-50"
+                />
+              )}
             </div>
+
+            {/* ADDITIONAL CELEBRATION FIELDS */}
+            {form.type === "Birthday & Anniversary Wishes" && (
+              <>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300 flex items-center gap-1.5">
+                    <Image size={15} className="text-indigo-400" />
+                    <span>Greeting Card / Poster Photo URL</span>
+                  </label>
+                  <input
+                    type="url"
+                    name="photoUrl"
+                    value={form.photoUrl || ""}
+                    onChange={handleChange}
+                    disabled={saving}
+                    placeholder="https://images.unsplash.com/photo-... or custom banner link"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-indigo-500 text-xs"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    This photo banner will be embedded directly at the top of the celebration email.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Dispatch Channel
+                  </label>
+                  <select
+                    name="channel"
+                    value={form.channel || "Email"}
+                    onChange={handleChange}
+                    disabled={saving}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="Email">Email (Rich HTML Celebration Card)</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Telegram">Telegram</option>
+                    <option value="All">All Channels</option>
+                  </select>
+                </div>
+
+                {/* LIVE CELEBRATION PREVIEW CARD */}
+                <div className="md:col-span-2 rounded-2xl border border-indigo-500/30 bg-slate-950 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase text-indigo-400 tracking-wider">
+                    <Sparkles size={14} className="text-amber-400" />
+                    <span>Live Greeting Card Preview</span>
+                  </div>
+
+                  <div className="max-w-md mx-auto rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl">
+                    <div className="h-32 bg-indigo-950/60 overflow-hidden relative flex items-center justify-center">
+                      {form.photoUrl ? (
+                        <img
+                          src={form.photoUrl}
+                          alt="Banner Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => (e.target.style.display = "none")}
+                        />
+                      ) : (
+                        <div className="text-center p-3 text-slate-500 text-xs flex items-center gap-1.5">
+                          <Cake size={16} className="text-amber-400" />
+                          <span>Default Celebration Banner will be used</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 space-y-2 text-center">
+                      <h4 className="text-sm font-bold text-white">
+                        {form.name || "Happy Birthday / Anniversary! 🎉"}
+                      </h4>
+                      <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line text-left bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                        {form.details || "Wishing you joyful celebrations, health, and success! - Team Business OS"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* BUTTONS */}
             <div className="flex justify-end gap-3 md:col-span-2">
@@ -601,8 +714,18 @@ function Masters() {
               className="group rounded-2xl border border-slate-800 bg-slate-900 p-5 transition-all hover:border-slate-700 hover:shadow-xl"
             >
               <div className="flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
-                  <Settings2 size={21} />
+                <div
+                  className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                    item.type === "Birthday & Anniversary Wishes"
+                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                      : "bg-indigo-500/10 text-indigo-400"
+                  }`}
+                >
+                  {item.type === "Birthday & Anniversary Wishes" ? (
+                    <Cake size={21} />
+                  ) : (
+                    <Settings2 size={21} />
+                  )}
                 </div>
 
                 <div className="flex gap-2">

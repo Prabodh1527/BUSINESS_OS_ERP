@@ -44,16 +44,16 @@ export default function EmployeeTopbarActions({ showSearch = true }) {
         </div>
       ) : null}
 
-      <Link to="/ai/chat" className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 transition hover:border-indigo-500 hover:bg-slate-800">
-        <Sparkles size={17} />
+      <Link to="/employee/ai" title="AI Staff Copilot" className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 transition hover:border-indigo-500 hover:bg-slate-800">
+        <Sparkles size={17} className="text-indigo-400" />
       </Link>
 
-      <Link to="/employee/notifications" className="relative rounded-xl border border-slate-800 bg-slate-900 p-2.5 transition hover:border-indigo-500 hover:bg-slate-800">
+      <Link to="/employee/notifications" title="Notifications" className="relative rounded-xl border border-slate-800 bg-slate-900 p-2.5 transition hover:border-indigo-500 hover:bg-slate-800">
         <Bell size={17} />
         {unreadCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] text-white">{unreadCount}</span>}
       </Link>
 
-      <Link to="/employee/profile" className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 transition hover:border-indigo-500 hover:bg-slate-800">
+      <Link to="/employee/settings" title="Employee Settings" className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 transition hover:border-indigo-500 hover:bg-slate-800">
         <Settings size={17} />
       </Link>
 
@@ -69,11 +69,11 @@ export default function EmployeeTopbarActions({ showSearch = true }) {
         </button>
 
         {open ? (
-          <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-xl">
-            <Link to="/employee/profile" className="block rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-slate-800" onClick={() => setOpen(false)}>
-              My Profile
+          <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-xl z-50">
+            <Link to="/employee/settings" className="block rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-slate-800" onClick={() => setOpen(false)}>
+              Settings & Profile
             </Link>
-            <Link to="/employee/profile" className="block rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-slate-800" onClick={() => setOpen(false)}>
+            <Link to="/employee/settings" className="block rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-slate-800" onClick={() => setOpen(false)}>
               Change Password
             </Link>
             <button onClick={handleLogout} className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm text-rose-400 hover:bg-slate-800">
