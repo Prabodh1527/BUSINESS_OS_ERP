@@ -36,9 +36,7 @@ import telegramRoutes from "./routes/telegram.routes.js";
 import { initializeConnectedTelegramBots } from "./services/telegramBot.service.js";
 import { startTelegramScheduler } from "./services/telegramScheduler.service.js";
 
-// Connect to Master MongoDB
-
-connectDB();
+// Connect to Master MongoDB is handled in startServer()
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -207,13 +205,31 @@ app.use((err, req, res, next) => {
 });
 
 // ==========================================
-// START SERVER
+// START SERVER (Ensures MongoDB is connected before services boot)
 // ==========================================
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  initializeConnectedTelegramBots().catch((err) =>
-    console.warn("⚠️ Failed to start Telegram bots on launch:", err.message)
-  );
-  startTelegramScheduler();
-});
+const startServer = async () => {
+  try {
+    // 1. Connect to MongoDB first
+    await connectDB();
+
+    // 2. Start HTTP Listener
+    app.listen(PORT, async () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+
+      // 3. Initialize background services only after DB is live
+      try {
+        await initializeConnectedTelegramBots();
+      } catch (err) {
+        console.warn("⚠️ Failed to start Telegram bots on launch:", err.message);
+      }
+
+      startTelegramScheduler();
+    });
+  } catch (error) {
+    console.error("❌ Fatal MongoDB connection error on launch:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();
 

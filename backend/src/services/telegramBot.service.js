@@ -16,6 +16,7 @@
  */
 
 import crypto from "crypto";
+import mongoose from "mongoose";
 import Tenant from "../models/Tenant.js";
 import User from "../models/User.js";
 import Employee from "../models/employee.model.js";
@@ -1761,6 +1762,15 @@ export function stopTelegramBotPolling(botToken) {
 
 export async function initializeConnectedTelegramBots() {
   try {
+    // Ensure DB connection is active before querying
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve) => {
+        if (mongoose.connection.readyState === 1) return resolve();
+        mongoose.connection.once("open", resolve);
+        setTimeout(resolve, 5000);
+      });
+    }
+
     const envBotToken = process.env.TELEGRAM_BOT_TOKEN;
 
     const tenants = await Tenant.find({
