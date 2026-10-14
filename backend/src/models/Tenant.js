@@ -198,6 +198,15 @@ const tenantSchema = new mongoose.Schema(
       },
     },
 
+    bookingServices: [
+      {
+        name: { type: String, required: true, trim: true },
+        duration: { type: Number, default: 30 },
+        price: { type: Number, default: 0 },
+        description: { type: String, default: "", trim: true },
+      },
+    ],
+
     openTime: {
 
       type: String,

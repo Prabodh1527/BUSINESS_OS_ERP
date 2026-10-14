@@ -52,12 +52,23 @@ router.get("/:slug", async (req, res) => {
       status: "Active",
     }).select("name position employeeId");
 
-    // Standard business services
+    // Dynamic business services from tenant configuration
     const defaultServices = [
       { id: "s1", name: "Executive Consultation", duration: 45, price: 1500, description: "One-on-one session with our senior specialist." },
       { id: "s2", name: "Standard Service Appointment", duration: 30, price: 800, description: "Full comprehensive business service session." },
       { id: "s3", name: "Quick Follow-up / Review", duration: 20, price: 500, description: "Status check and operational assessment." },
     ];
+
+    const services =
+      tenant.bookingServices && tenant.bookingServices.length > 0
+        ? tenant.bookingServices.map((s, idx) => ({
+            id: s._id ? s._id.toString() : `s_${idx}`,
+            name: s.name,
+            duration: s.duration || 30,
+            price: s.price || 0,
+            description: s.description || "",
+          }))
+        : defaultServices;
 
     const timeSlots = [
       "09:30 AM",
@@ -81,7 +92,7 @@ router.get("/:slug", async (req, res) => {
         businessEmail: tenant.businessEmail || "",
         businessPhone: tenant.businessPhone || "",
         address: [tenant.address, tenant.city, tenant.state].filter(Boolean).join(", "),
-        services: defaultServices,
+        services,
         specialists: employees.map((e) => ({ name: e.name, position: e.position || "Specialist" })),
         timeSlots,
       },

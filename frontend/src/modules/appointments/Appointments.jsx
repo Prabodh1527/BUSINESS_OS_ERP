@@ -15,12 +15,18 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Sparkles,
+  Clock,
+  IndianRupee,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchAppointments,
   updateAppointment,
   deleteAppointment,
+  fetchBookingServices,
+  updateBookingServices,
 } from "@/api/appointments.api";
 
 export default function Appointments() {
@@ -30,6 +36,16 @@ export default function Appointments() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Dynamic Services Modal State
+  const [servicesModalOpen, setServicesModalOpen] = useState(false);
+  const [servicesList, setServicesList] = useState([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [savingServices, setSavingServices] = useState(false);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServicePrice, setNewServicePrice] = useState("");
+  const [newServiceDuration, setNewServiceDuration] = useState("30");
+  const [newServiceDesc, setNewServiceDesc] = useState("");
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -161,6 +177,57 @@ export default function Appointments() {
     window.open(url, "_blank");
   };
 
+  // Manage Public Booking Services Handlers
+  const handleOpenServicesModal = async () => {
+    setServicesModalOpen(true);
+    setLoadingServices(true);
+    try {
+      const res = await fetchBookingServices(token);
+      if (res.success && res.data) {
+        setServicesList(res.data);
+      }
+    } catch (err) {
+      console.warn("Could not fetch services:", err);
+    } finally {
+      setLoadingServices(false);
+    }
+  };
+
+  const handleAddService = (e) => {
+    e.preventDefault();
+    if (!newServiceName.trim()) return;
+    const newSvc = {
+      name: newServiceName.trim(),
+      price: Number(newServicePrice) || 0,
+      duration: Number(newServiceDuration) || 30,
+      description: newServiceDesc.trim(),
+    };
+    setServicesList((prev) => [...prev, newSvc]);
+    setNewServiceName("");
+    setNewServicePrice("");
+    setNewServiceDuration("30");
+    setNewServiceDesc("");
+  };
+
+  const handleDeleteService = (idx) => {
+    setServicesList((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSaveServices = async () => {
+    setSavingServices(true);
+    try {
+      const res = await updateBookingServices(servicesList, token);
+      if (res.success) {
+        alert("Booking services updated! Your public booking page is now live with these services.");
+        setServicesModalOpen(false);
+      }
+    } catch (err) {
+      alert("Failed to save services: " + err.message);
+    } finally {
+      setSavingServices(false);
+    }
+  };
+
   // Export CSV
   const exportCSV = () => {
     if (appointments.length === 0) return alert("No appointments to export.");
@@ -258,6 +325,14 @@ export default function Appointments() {
               <ExternalLink size={13} />
             </a>
           </div>
+
+          <button
+            onClick={handleOpenServicesModal}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-3.5 py-2 text-xs font-semibold text-amber-300 transition cursor-pointer"
+          >
+            <Sparkles size={14} className="text-amber-400" />
+            <span>Manage Services & Pricing</span>
+          </button>
 
           <Link
             to="/appointments/calendar"
@@ -463,6 +538,177 @@ export default function Appointments() {
           </table>
         )}
       </div>
+
+      {/* ─── DYNAMIC BOOKING SERVICES CUSTOMIZER MODAL ─── */}
+      {servicesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900 p-6 md:p-8 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Sparkles size={18} className="text-amber-400" />
+                  Customize Booking Services & Prices
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Services configured here are dynamically displayed on your live public booking portal.
+                </p>
+              </div>
+              <button
+                onClick={() => setServicesModalOpen(false)}
+                className="rounded-xl border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingServices ? (
+              <div className="py-12 text-center text-slate-400">
+                <Loader2 size={24} className="animate-spin mx-auto mb-2 text-indigo-500" />
+                Loading your services...
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Active Services List */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Current Public Services ({servicesList.length})
+                  </h4>
+
+                  {servicesList.length === 0 ? (
+                    <p className="text-xs text-slate-400 bg-slate-950/40 p-4 rounded-2xl border border-slate-800 text-center">
+                      No services configured. Add your first service below!
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                      {servicesList.map((svc, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 hover:border-slate-700 transition"
+                        >
+                          <div className="space-y-0.5">
+                            <span className="font-semibold text-white text-sm">{svc.name}</span>
+                            <div className="flex items-center gap-3 text-xs text-slate-400">
+                              <span className="flex items-center gap-1 text-indigo-400">
+                                <Clock size={12} /> {svc.duration} mins
+                              </span>
+                              <span className="font-bold text-emerald-400">
+                                ₹{Number(svc.price || 0).toLocaleString("en-IN")}
+                              </span>
+                              {svc.description && (
+                                <span className="text-slate-500 truncate max-w-xs">• {svc.description}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteService(idx)}
+                            className="p-1.5 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 transition"
+                            title="Remove Service"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add New Service Form */}
+                <form onSubmit={handleAddService} className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 space-y-3">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Plus size={14} className="text-indigo-400" /> Add New Service
+                  </h4>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="sm:col-span-3">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Service Name (e.g. Haircut, Dental Cleaning, Consultation)"
+                        value={newServiceName}
+                        onChange={(e) => setNewServiceName(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <input
+                        type="number"
+                        required
+                        placeholder="Price in ₹ (e.g. 800)"
+                        value={newServicePrice}
+                        onChange={(e) => setNewServicePrice(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="Duration mins (e.g. 45)"
+                        value={newServiceDuration}
+                        onChange={(e) => setNewServiceDuration(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <button
+                        type="submit"
+                        className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2 text-xs font-semibold text-white transition shadow-md shadow-indigo-600/20"
+                      >
+                        + Add Service
+                      </button>
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <input
+                        type="text"
+                        placeholder="Brief description for clients (optional)..."
+                        value={newServiceDesc}
+                        onChange={(e) => setNewServiceDesc(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </form>
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <a
+                    href={`/book/${user?.tenantId || "default"}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition"
+                  >
+                    <ExternalLink size={13} /> View Live Client Booking Page
+                  </a>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setServicesModalOpen(false)}
+                      className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveServices}
+                      disabled={savingServices}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 transition disabled:opacity-50"
+                    >
+                      {savingServices ? <Loader2 size={13} className="animate-spin" /> : null}
+                      <span>{savingServices ? "Publishing..." : "Publish to Booking Page"}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

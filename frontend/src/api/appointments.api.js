@@ -55,3 +55,21 @@ export const deleteAppointment = async (id, token) => {
   if (!response.ok) throw new Error("Failed to cancel appointment");
   return response.json();
 };
+
+export const fetchBookingServices = async (token) => {
+  const response = await fetch(`${API_BASE}/api/appointments/services`, {
+    headers: getHeaders(token),
+  });
+  if (!response.ok) throw new Error("Failed to fetch booking services");
+  return response.json();
+};
+
+export const updateBookingServices = async (services, token) => {
+  const response = await fetch(`${API_BASE}/api/appointments/services`, {
+    method: "PUT",
+    headers: getHeaders(token),
+    body: JSON.stringify({ services }),
+  });
+  if (!response.ok) throw new Error("Failed to update booking services");
+  return response.json();
+};

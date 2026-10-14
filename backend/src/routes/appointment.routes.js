@@ -2,6 +2,7 @@ import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
 import { attachTenantDB } from "../middleware/tenant.middleware.js";
 import Appointment from "../models/appointment.model.js";
+import Tenant from "../models/Tenant.js";
 import Notification from "../models/notification.model.js";
 import { sendAppointmentEmail } from "../utils/email.js";
 import { getEmployeeIdentity, isEmployeeUser } from "../utils/employeeIdentity.js";
@@ -65,6 +66,51 @@ router.get("/", async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error fetching appointments:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==========================================
+// 1B. GET BOOKING SERVICES FOR TENANT
+// GET /api/appointments/services
+// ==========================================
+router.get("/services", async (req, res) => {
+  try {
+    const tenant = (await Tenant.findById(req.tenantId)) || (await Tenant.findOne({ ownerId: req.user?._id }));
+    const defaultServices = [
+      { name: "Executive Consultation", duration: 45, price: 1500, description: "One-on-one session with our senior specialist." },
+      { name: "Standard Service Appointment", duration: 30, price: 800, description: "Full comprehensive business service session." },
+      { name: "Quick Follow-up / Review", duration: 20, price: 500, description: "Status check and operational assessment." },
+    ];
+    const services = tenant?.bookingServices?.length > 0 ? tenant.bookingServices : defaultServices;
+    return res.status(200).json({ success: true, data: services });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==========================================
+// 1C. UPDATE BOOKING SERVICES FOR TENANT
+// PUT /api/appointments/services
+// ==========================================
+router.put("/services", async (req, res) => {
+  try {
+    const { services } = req.body;
+    if (!Array.isArray(services)) {
+      return res.status(400).json({ success: false, message: "Services must be an array." });
+    }
+    const tenant = (await Tenant.findById(req.tenantId)) || (await Tenant.findOne({ ownerId: req.user?._id }));
+    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found." });
+
+    tenant.bookingServices = services;
+    await tenant.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking services updated successfully!",
+      data: tenant.bookingServices,
+    });
+  } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
