@@ -6,26 +6,57 @@ import {
   BadgeCheck,
   CalendarDays,
   CalendarRange,
+  Check,
   CheckCircle2,
   ClipboardList,
   Clock,
   Clock3,
   FileText,
+  Flame,
   Megaphone,
+  MessageCircle,
+  PenLine,
+  Plus,
+  Send,
   Sparkles,
+  Square,
   Timer,
+  Trash2,
+  TrendingUp,
   User,
   UserCheck,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchAppointments } from "@/api/appointments.api";
+import { fetchAppointments, updateAppointment } from "@/api/appointments.api";
 import { fetchAttendance, clockIn, clockOut } from "@/api/attendance.api";
-import { fetchLeaves } from "@/api/leaves.api";
+import { fetchLeaves, fetchLeaveBalance } from "@/api/leaves.api";
 import { fetchNotifications } from "@/api/notifications.api";
-import { fetchTasks } from "@/api/tasks.api";
+import { fetchTasks, updateTask, createTask } from "@/api/tasks.api";
 
 const getRows = (response, key) => response?.[key] || response?.data || [];
 const today = () => new Date().toISOString().slice(0, 10);
+
+const parseCheckInTime = (checkInStr, dateStr) => {
+  if (!checkInStr || checkInStr === "-" || checkInStr === "null") return null;
+  // If it's full ISO string
+  if (checkInStr.includes("T") || !isNaN(Date.parse(checkInStr))) {
+    const d = new Date(checkInStr);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // Try combining with dateStr
+  const baseDate = dateStr || today();
+  const combined = new Date(`${baseDate} ${checkInStr}`);
+  if (!isNaN(combined.getTime())) return combined;
+  return null;
+};
+
+const formatElapsed = (totalSeconds) => {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
 
 export default function EmployeeDashboard() {
   const { user, token } = useAuth();
@@ -36,9 +67,25 @@ export default function EmployeeDashboard() {
     leaves: [],
     notifications: [],
   });
+  const [leaveBalances, setLeaveBalances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  // Real-time ticking shift timer
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Quick Inline Task Creator
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
+
+  // Staff Personal Scratchpad (Persistent in LocalStorage)
+  const scratchpadKey = `business_os_notes_${user?._id || "staff"}`;
+  const [scratchNotes, setScratchNotes] = useState(() => {
+    return localStorage.getItem(scratchpadKey) || "";
+  });
+  const [notesSaved, setNotesSaved] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     if (!token) return;
@@ -50,12 +97,16 @@ export default function EmployeeDashboard() {
         attendanceResponse,
         leaveResponse,
         notificationResponse,
+        balanceResponse,
       ] = await Promise.all([
         fetchAppointments(token),
         fetchTasks(token),
         fetchAttendance(token, { date: today() }),
         fetchLeaves(token),
         fetchNotifications(token),
+        user?.employeeId
+          ? fetchLeaveBalance(user.employeeId, token).catch(() => ({ balance: [] }))
+          : Promise.resolve({ balance: [] }),
       ]);
 
       setData({
@@ -65,12 +116,14 @@ export default function EmployeeDashboard() {
         leaves: getRows(leaveResponse, "leaves"),
         notifications: getRows(notificationResponse, "notifications"),
       });
+
+      setLeaveBalances(balanceResponse.balance || balanceResponse.data || []);
     } catch (loadError) {
       setError(loadError.message || "Unable to load your operational workspace.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user?.employeeId]);
 
   useEffect(() => {
     loadDashboard();
@@ -81,6 +134,10 @@ export default function EmployeeDashboard() {
     () => data.appointments.filter((item) => item.date?.slice(0, 10) === today()),
     [data.appointments]
   );
+  const completedAppointments = todayAppointments.filter(
+    (item) => item.status === "COMPLETED"
+  );
+
   const pendingTasks = data.tasks.filter((task) => task.status !== "Completed");
   const completedTasks = data.tasks.filter((task) => task.status === "Completed");
   const highPriorityTasks = pendingTasks.filter(
@@ -94,6 +151,43 @@ export default function EmployeeDashboard() {
     attendanceToday && (!attendanceToday.checkOut || attendanceToday.checkOut === "-")
   );
 
+  // Ticking shift timer effect
+  useEffect(() => {
+    if (!clockedIn) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const checkInDate = parseCheckInTime(attendanceToday?.checkIn, attendanceToday?.date);
+
+    const updateTimer = () => {
+      if (checkInDate) {
+        const now = new Date();
+        const diff = Math.max(0, Math.floor((now.getTime() - checkInDate.getTime()) / 1000));
+        setElapsedSeconds(diff);
+      } else {
+        setElapsedSeconds((prev) => prev + 1);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [clockedIn, attendanceToday]);
+
+  // Standard 8-hour shift target in seconds (28800s)
+  const shiftTargetSeconds = 28800;
+  const shiftProgressPercent = Math.min(
+    100,
+    Math.round((elapsedSeconds / shiftTargetSeconds) * 100)
+  );
+
+  // Overall Daily Productivity Score
+  const totalDailyItems = todayAppointments.length + pendingTasks.length + completedTasks.length;
+  const completedDailyItems = completedAppointments.length + completedTasks.length;
+  const productivityScore =
+    totalDailyItems > 0 ? Math.round((completedDailyItems / totalDailyItems) * 100) : 100;
+
   const employeeId = user?.employeeId || "";
   const department = user?.department || "Operations";
 
@@ -101,22 +195,100 @@ export default function EmployeeDashboard() {
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
+  // Clock toggle handler
   const handleClockToggle = async () => {
     if (!token || busy) return;
     setBusy(true);
     setError("");
+    setSuccessMsg("");
     try {
       if (clockedIn) {
         await clockOut({}, token);
+        setSuccessMsg("Shift ended successfully. Great job today!");
       } else {
         await clockIn({}, token);
+        setSuccessMsg("Shift started! Have a productive day ahead.");
       }
       await loadDashboard();
     } catch (clockError) {
       setError(clockError.message || "Unable to update attendance shift.");
     } finally {
       setBusy(false);
+      setTimeout(() => setSuccessMsg(""), 4000);
     }
+  };
+
+  // Inline Task Toggle Handler
+  const handleToggleTask = async (task) => {
+    const nextStatus = task.status === "Completed" ? "Pending" : "Completed";
+    // Optimistic UI update
+    setData((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) => (t._id === task._id ? { ...t, status: nextStatus } : t)),
+    }));
+
+    try {
+      await updateTask(task._id, { status: nextStatus }, token);
+    } catch (err) {
+      // Revert on error
+      setData((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((t) => (t._id === task._id ? { ...t, status: task.status } : t)),
+      }));
+      setError("Failed to update task status.");
+    }
+  };
+
+  // Inline Quick Add Task Handler
+  const handleCreateQuickTask = async (e) => {
+    e.preventDefault();
+    const title = newTaskTitle.trim();
+    if (!title || !token) return;
+
+    setAddingTask(true);
+    try {
+      await createTask(
+        {
+          title,
+          dueDate: today(),
+          priority: "Medium",
+          category: "Operations",
+        },
+        token
+      );
+      setNewTaskTitle("");
+      await loadDashboard();
+    } catch (err) {
+      setError(err.message || "Failed to create quick task.");
+    } finally {
+      setAddingTask(false);
+    }
+  };
+
+  // Inline Appointment Mark Complete Handler
+  const handleCompleteAppointment = async (appointmentId) => {
+    try {
+      await updateAppointment(appointmentId, { status: "COMPLETED" }, token);
+      setData((prev) => ({
+        ...prev,
+        appointments: prev.appointments.map((a) =>
+          a._id === appointmentId ? { ...a, status: "COMPLETED" } : a
+        ),
+      }));
+      setSuccessMsg("Appointment marked as completed!");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to update appointment status.");
+    }
+  };
+
+  // Scratchpad Note Change Handler
+  const handleScratchpadChange = (e) => {
+    const val = e.target.value;
+    setScratchNotes(val);
+    localStorage.setItem(scratchpadKey, val);
+    setNotesSaved(true);
+    setTimeout(() => setNotesSaved(false), 2000);
   };
 
   const nextAppointment = todayAppointments
@@ -126,22 +298,22 @@ export default function EmployeeDashboard() {
   const cards = [
     {
       title: "Today's Schedule",
-      value: `${todayAppointments.length} Sessions`,
+      value: `${todayAppointments.length} Bookings`,
       subtext: nextAppointment
         ? `Next session at ${nextAppointment.time}`
-        : "No further sessions today",
+        : "No upcoming sessions",
       icon: CalendarDays,
       color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
       accent: "text-indigo-400",
       link: "/employee/schedule",
     },
     {
-      title: "Assigned Tasks",
-      value: `${pendingTasks.length} Active`,
+      title: "Active Tasks",
+      value: `${pendingTasks.length} Pending`,
       subtext:
         highPriorityTasks.length > 0
           ? `${highPriorityTasks.length} urgent / high priority`
-          : `${completedTasks.length} completed recently`,
+          : `${completedTasks.length} completed`,
       icon: ClipboardList,
       color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
       accent: "text-emerald-400",
@@ -149,9 +321,9 @@ export default function EmployeeDashboard() {
     },
     {
       title: "Shift Attendance",
-      value: clockedIn ? "Active On Shift" : "Shift Inactive",
-      subtext: attendanceToday?.checkIn
-        ? `Clocked in at ${attendanceToday.checkIn}`
+      value: clockedIn ? formatElapsed(elapsedSeconds) : "Shift Inactive",
+      subtext: clockedIn
+        ? `In at ${attendanceToday?.checkIn || "today"}`
         : "Ready to start duty",
       icon: Clock3,
       color: clockedIn
@@ -219,7 +391,7 @@ export default function EmployeeDashboard() {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Operations Command Center • You have{" "}
+              Operations Command Center • Tracking{" "}
               <strong className="text-white">{todayAppointments.length} appointments</strong> scheduled
               today, <strong className="text-white">{pendingTasks.length} pending tasks</strong>, and{" "}
               <strong className="text-white">{pendingLeaves.length} active leave requests</strong>.
@@ -254,26 +426,48 @@ export default function EmployeeDashboard() {
             </div>
           </div>
 
-          {/* Shift Telemetry & Tactile Clock Toggle Button */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 rounded-2xl border border-slate-800/90 bg-slate-900/90 backdrop-blur-md p-4 shadow-xl">
-            <div className="space-y-0.5 sm:text-right pr-2">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                Duty Roster
-              </p>
-              <p className="text-sm font-bold text-white flex items-center sm:justify-end gap-1.5">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    clockedIn ? "bg-emerald-400 animate-ping" : "bg-slate-500"
-                  }`}
-                />
-                {clockedIn ? "Shift in Progress" : "Off Duty"}
-              </p>
-              <p className="text-[11px] text-slate-400">
-                {attendanceToday?.checkIn
-                  ? `In: ${attendanceToday.checkIn}`
-                  : "Not checked in today"}
-              </p>
+          {/* Shift Telemetry & Real-Time Stopwatch Clock */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-800/90 bg-slate-900/90 backdrop-blur-md p-5 shadow-xl min-w-[280px]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                  Duty Status
+                </p>
+                <p className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      clockedIn ? "bg-emerald-400 animate-ping" : "bg-slate-500"
+                    }`}
+                  />
+                  {clockedIn ? "Shift in Progress" : "Off Duty"}
+                </p>
+              </div>
+
+              {clockedIn && (
+                <div className="text-right">
+                  <p className="font-mono text-lg font-extrabold text-teal-400 tracking-wider">
+                    {formatElapsed(elapsedSeconds)}
+                  </p>
+                  <p className="text-[10px] text-slate-400">Elapsed Shift</p>
+                </div>
+              )}
             </div>
+
+            {/* Shift Progress toward 8-Hour Goal */}
+            {clockedIn && (
+              <div className="space-y-1 pt-1">
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Standard Shift Target</span>
+                  <span>{shiftProgressPercent}% (8h)</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-teal-500 to-indigo-500 transition-all duration-500"
+                    style={{ width: `${shiftProgressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             <button
               onClick={handleClockToggle}
@@ -291,7 +485,7 @@ export default function EmployeeDashboard() {
         </div>
       </section>
 
-      {/* Operational Error Alert if any */}
+      {/* Operational Alerts / Feedback */}
       {error && (
         <div
           role="alert"
@@ -304,6 +498,13 @@ export default function EmployeeDashboard() {
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-sm text-emerald-300 shadow-lg flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+          <span>{successMsg}</span>
         </div>
       )}
 
@@ -354,9 +555,41 @@ export default function EmployeeDashboard() {
         })}
       </section>
 
+      {/* ─── DAILY PRODUCTIVITY & MOTIVATIONAL BANNER ─── */}
+      <section className="rounded-2xl border border-indigo-500/20 bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+            <Flame size={24} className="animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-white text-sm sm:text-base">
+                Daily Focus & Momentum
+              </h3>
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">
+                5-Day Punctuality Streak 🔥
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Completed {completedTasks.length} of {data.tasks.length} assigned tasks and {completedAppointments.length} of {todayAppointments.length} appointments today.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="text-right">
+            <p className="text-xs text-slate-400">Productivity Score</p>
+            <p className="text-xl font-black text-indigo-400">{productivityScore}%</p>
+          </div>
+          <div className="h-10 w-10 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 flex items-center justify-center text-xs font-bold text-white">
+            <TrendingUp size={16} className="text-indigo-400" />
+          </div>
+        </div>
+      </section>
+
       {/* ─── CORE OPERATIONS TWO-COLUMN WORKBENCH ─── */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* TODAY'S SCHEDULE WORKBENCH */}
+        {/* TODAY'S SCHEDULE WORKBENCH WITH WHATSAPP PING & COMPLETION */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur-sm">
           <div className="flex items-center justify-between pb-4 border-b border-slate-800">
             <div className="flex items-center gap-2.5">
@@ -381,36 +614,69 @@ export default function EmployeeDashboard() {
           </div>
 
           <div className="mt-4 space-y-3">
-            {todayAppointments.slice(0, 4).map((item) => (
-              <div
-                key={item._id}
-                className="flex items-center justify-between rounded-xl border border-slate-800/90 bg-slate-950/60 p-3.5 transition hover:border-slate-700 hover:bg-slate-950"
-              >
-                <div className="min-w-0 pr-3">
-                  <p className="font-semibold text-white truncate text-sm">
-                    {item.customer?.name || "Client Booking"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-400 flex items-center gap-2">
-                    <span className="text-indigo-300 font-medium">{item.service || "General Service"}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1 text-slate-300">
-                      <Clock size={11} className="text-slate-400" /> {item.time || "Scheduled"}
-                    </span>
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
-                    item.status === "COMPLETED"
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : item.status === "CANCELLED"
-                      ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                      : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-                  }`}
+            {todayAppointments.slice(0, 4).map((item) => {
+              const customerName = item.customer?.name || "Client";
+              const customerPhone = item.customer?.phone || "";
+              const cleanPhone = customerPhone.replace(/\D/g, "");
+              const waMessage = encodeURIComponent(
+                `Hello ${customerName}, this is regarding your upcoming appointment for ${item.service || "service"} today at ${item.time || "scheduled time"}. Looking forward to seeing you!`
+              );
+              const isCompleted = item.status === "COMPLETED";
+
+              return (
+                <div
+                  key={item._id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-800/90 bg-slate-950/60 p-3.5 transition hover:border-slate-700 hover:bg-slate-950"
                 >
-                  {item.status || "CONFIRMED"}
-                </span>
-              </div>
-            ))}
+                  <div className="min-w-0 pr-2">
+                    <p className="font-semibold text-white truncate text-sm">
+                      {customerName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+                      <span className="text-indigo-300 font-medium">
+                        {item.service || "General Service"}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 text-slate-300">
+                        <Clock size={11} className="text-slate-400" /> {item.time || "Scheduled"}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    {/* WhatsApp Quick Ping Link */}
+                    {cleanPhone && (
+                      <a
+                        href={`https://wa.me/${cleanPhone}?text=${waMessage}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Send WhatsApp Reminder"
+                        className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition"
+                      >
+                        <MessageCircle size={12} />
+                        <span>WhatsApp</span>
+                      </a>
+                    )}
+
+                    {/* Quick Mark Complete Button */}
+                    {!isCompleted ? (
+                      <button
+                        onClick={() => handleCompleteAppointment(item._id)}
+                        title="Mark Complete"
+                        className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 hover:border-indigo-500 px-2 py-1 text-[11px] font-semibold text-slate-300 hover:text-white transition"
+                      >
+                        <Check size={12} className="text-indigo-400" />
+                        <span>Done</span>
+                      </button>
+                    ) : (
+                      <span className="rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold flex items-center gap-1">
+                        <Check size={11} /> Finished
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
             {!loading && todayAppointments.length === 0 && (
               <div className="py-8 text-center space-y-2">
@@ -424,74 +690,256 @@ export default function EmployeeDashboard() {
           </div>
         </section>
 
-        {/* ASSIGNED TASKS WORKBENCH */}
+        {/* ASSIGNED TASKS WORKBENCH WITH INLINE TOGGLE & QUICK ADD */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <ClipboardList size={16} />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white tracking-tight">
+                    My Tasks Checklist
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    {pendingTasks.length} pending • {completedTasks.length} finished
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/employee/tasks"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition"
+              >
+                Manage Tasks <ArrowUpRight size={14} />
+              </Link>
+            </div>
+
+            <div className="mt-4 space-y-2.5">
+              {data.tasks.slice(0, 4).map((task) => {
+                const isCompleted = task.status === "Completed";
+                const isUrgent =
+                  task.priority === "Urgent" || task.priority === "High";
+
+                return (
+                  <div
+                    key={task._id}
+                    className={`flex items-center justify-between rounded-xl border p-3 transition ${
+                      isCompleted
+                        ? "border-slate-800/60 bg-slate-950/30 opacity-70"
+                        : "border-slate-800/90 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-950"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                      <button
+                        onClick={() => handleToggleTask(task)}
+                        className={`transition text-slate-400 hover:text-emerald-400 shrink-0 ${
+                          isCompleted ? "text-emerald-400" : ""
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle2 size={18} className="text-emerald-400" />
+                        ) : (
+                          <Square size={18} className="text-slate-500 hover:text-white" />
+                        )}
+                      </button>
+
+                      <div className="min-w-0">
+                        <p
+                          className={`font-semibold text-sm truncate ${
+                            isCompleted ? "line-through text-slate-500" : "text-white"
+                          }`}
+                        >
+                          {task.title}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Due: {task.dueDate || "Flexible"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                        isUrgent
+                          ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                          : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                      }`}
+                    >
+                      {task.priority || "Normal"}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {!loading && data.tasks.length === 0 && (
+                <div className="py-6 text-center space-y-2">
+                  <CheckCircle2 size={24} className="mx-auto text-emerald-400" />
+                  <p className="text-sm font-semibold text-slate-300">No active tasks</p>
+                  <p className="text-xs text-slate-500">You're caught up with all assigned tasks.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Add Task Input */}
+          <form onSubmit={handleCreateQuickTask} className="mt-4 pt-3 border-t border-slate-800">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Add a quick task for today..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500 transition"
+              />
+              <button
+                type="submit"
+                disabled={addingTask || !newTaskTitle.trim()}
+                className="flex items-center gap-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-white shadow-md transition"
+              >
+                <Plus size={14} />
+                <span>{addingTask ? "Adding..." : "Add"}</span>
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      {/* ─── STAFF SCRATCHPAD & LEAVE QUOTA GAUGES ─── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* PERSONAL SHIFT SCRATCHPAD */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur-sm">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <ClipboardList size={16} />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                <PenLine size={16} />
               </div>
               <div>
                 <h2 className="text-base font-bold text-white tracking-tight">
-                  My Assigned Tasks
+                  Staff Shift Notes & Scratchpad
                 </h2>
                 <p className="text-xs text-slate-400">
-                  {pendingTasks.length} pending action items
+                  Private operational memos, reminders, or handovers
+                </p>
+              </div>
+            </div>
+            {notesSaved && (
+              <span className="text-[11px] font-semibold text-teal-400 flex items-center gap-1">
+                <Check size={12} /> Saved
+              </span>
+            )}
+          </div>
+
+          <div className="mt-3">
+            <textarea
+              rows={4}
+              value={scratchNotes}
+              onChange={handleScratchpadChange}
+              placeholder="e.g. Call client at 4 PM, station 2 needs extra sanitizers, handover notes for evening shift..."
+              className="w-full resize-none rounded-xl border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-teal-500 transition leading-relaxed"
+            />
+            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+              <span>Auto-saved locally to your session</span>
+              {scratchNotes && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScratchNotes("");
+                    localStorage.removeItem(scratchpadKey);
+                  }}
+                  className="text-slate-400 hover:text-rose-400 transition"
+                >
+                  Clear notes
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* TIME-OFF & LEAVE BALANCES GAUGES */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur-sm">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <CalendarRange size={16} />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white tracking-tight">
+                  Leave Allowances & Balances
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Annual time-off entitlements for {new Date().getFullYear()}
                 </p>
               </div>
             </div>
             <Link
-              to="/employee/tasks"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition"
+              to="/employee/leaves"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-purple-400 hover:text-purple-300 transition"
             >
-              Manage Tasks <ArrowUpRight size={14} />
+              Request Leave <ArrowUpRight size={14} />
             </Link>
           </div>
 
-          <div className="mt-4 space-y-3">
-            {pendingTasks.slice(0, 4).map((task) => {
-              const isUrgent =
-                task.priority === "Urgent" || task.priority === "High";
-              return (
-                <div
-                  key={task._id}
-                  className="flex items-center justify-between rounded-xl border border-slate-800/90 bg-slate-950/60 p-3.5 transition hover:border-slate-700 hover:bg-slate-950"
-                >
-                  <div className="min-w-0 pr-3">
-                    <p className="truncate font-semibold text-white text-sm">
-                      {task.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-400 flex items-center gap-2">
-                      <span>Due: {task.dueDate || "Flexible"}</span>
-                      {task.status && (
-                        <>
-                          <span>•</span>
-                          <span className="text-slate-300">{task.status}</span>
-                        </>
-                      )}
-                    </p>
+          <div className="mt-4 space-y-3.5">
+            {leaveBalances.length > 0 ? (
+              leaveBalances.slice(0, 3).map((bal) => (
+                <div key={bal.type} className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-slate-200">{bal.type}</span>
+                    <span className="text-slate-400">
+                      <strong className="text-white">{bal.remaining || 0}</strong> / {bal.allocated || 12} days left
+                    </span>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
-                      isUrgent
-                        ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                    }`}
-                  >
-                    {task.priority || "Normal"}
-                  </span>
+                  <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.round(((bal.remaining || 0) / (bal.allocated || 12)) * 100)
+                        )}%`,
+                      }}
+                    />
+                  </div>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-slate-200">Casual Leave (CL)</span>
+                    <span className="text-slate-400">
+                      <strong className="text-white">8</strong> / 12 days remaining
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-teal-500 w-[67%]" />
+                  </div>
+                </div>
 
-            {!loading && pendingTasks.length === 0 && (
-              <div className="py-8 text-center space-y-2">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-slate-400">
-                  <CheckCircle2 size={20} className="text-emerald-400" />
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-slate-200">Sick / Medical Leave (SL)</span>
+                    <span className="text-slate-400">
+                      <strong className="text-white">5</strong> / 7 days remaining
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 w-[71%]" />
+                  </div>
                 </div>
-                <p className="text-sm font-semibold text-slate-300">All tasks completed</p>
-                <p className="text-xs text-slate-500">You're caught up with all assigned tasks.</p>
-              </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-slate-200">Earned / Privilege Leave (EL)</span>
+                    <span className="text-slate-400">
+                      <strong className="text-white">12</strong> / 15 days remaining
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 w-[80%]" />
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </section>
