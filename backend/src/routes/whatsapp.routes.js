@@ -193,15 +193,24 @@ router.post("/connect", async (req, res) => {
       return res.status(404).json({ success: false, message: "Tenant record not found." });
     }
 
+    const existingPrefs = tenant.whatsappConfig?.notificationPreferences || {};
     tenant.whatsappConfig = {
-      ...(tenant.whatsappConfig || {}),
       phoneNumberId: targetPhoneId,
       accessToken: targetToken,
       businessPhoneNumber: businessPhoneNumber || verification.data.displayPhoneNumber || "",
       businessAccountId: businessAccountId || "",
       connected: true,
       connectedAt: new Date(),
+      webhookVerifyToken: tenant.whatsappConfig?.webhookVerifyToken || "business_os_wa_verify_token",
+      notificationPreferences: {
+        appointments: existingPrefs.appointments !== false,
+        invoices: existingPrefs.invoices !== false,
+        tasks: existingPrefs.tasks !== false,
+        inventory: existingPrefs.inventory !== false,
+        dailySummary: existingPrefs.dailySummary !== false,
+      },
     };
+    tenant.markModified("whatsappConfig");
     await tenant.save();
 
     recordAuditLog({
@@ -270,9 +279,10 @@ router.put("/preferences", async (req, res) => {
     if (!tenant.whatsappConfig) tenant.whatsappConfig = {};
     if (notificationPreferences) {
       tenant.whatsappConfig.notificationPreferences = {
-        ...tenant.whatsappConfig.notificationPreferences,
+        ...(tenant.whatsappConfig.notificationPreferences || {}),
         ...notificationPreferences,
       };
+      tenant.markModified("whatsappConfig");
       await tenant.save();
     }
 

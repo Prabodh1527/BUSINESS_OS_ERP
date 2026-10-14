@@ -190,11 +190,14 @@ const tenantSchema = new mongoose.Schema(
         default: "business_os_wa_verify_token",
       },
       notificationPreferences: {
-        appointments: { type: Boolean, default: true },
-        invoices: { type: Boolean, default: true },
-        tasks: { type: Boolean, default: true },
-        inventory: { type: Boolean, default: true },
-        dailySummary: { type: Boolean, default: true },
+        type: mongoose.Schema.Types.Mixed,
+        default: () => ({
+          appointments: true,
+          invoices: true,
+          tasks: true,
+          inventory: true,
+          dailySummary: true,
+        }),
       },
     },
 
