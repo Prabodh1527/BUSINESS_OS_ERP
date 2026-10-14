@@ -303,10 +303,37 @@ export function calculateBusinessHealth(metrics) {
 
   const totalScore = financialScore + inventoryScore + customerScore + operationsScore;
 
+  const narrativeParts = [];
+  if (metrics.totalRevenue > 0) {
+    narrativeParts.push(`Gross collected revenue stands at ₹${metrics.totalRevenue.toLocaleString("en-IN")}${metrics.netProfit > 0 ? ` with a strong ${metrics.profitMargin}% net margin (₹${metrics.netProfit.toLocaleString("en-IN")})` : `, with expenses offsetting net margins`}.`);
+  } else {
+    narrativeParts.push("No recorded invoice transactions yet; revenue channels are standing by.");
+  }
+
+  if (metrics.pendingRevenue > 0) {
+    narrativeParts.push(`⚠️ ₹${metrics.pendingRevenue.toLocaleString("en-IN")} remains pending collection across unpaid customer invoices.`);
+  }
+
+  if (metrics.outOfStockCount > 0 || metrics.lowStockCount > 0) {
+    narrativeParts.push(`📦 Inventory notice: ${metrics.outOfStockCount + metrics.lowStockCount} items require reordering (${metrics.outOfStockCount} out of stock, ${metrics.lowStockCount} low).`);
+  } else if (metrics.totalProducts > 0) {
+    narrativeParts.push(`✅ All ${metrics.totalProducts} catalog products are currently stocked within safe thresholds (₹${metrics.totalStockValue.toLocaleString("en-IN")} total value).`);
+  }
+
+  if (metrics.totalAppointments > 0) {
+    narrativeParts.push(`📅 Active booking pipeline: ${metrics.totalAppointments} appointments recorded (${metrics.completedAppointments} completed).`);
+  }
+
+  if (metrics.totalCustomers > 0) {
+    narrativeParts.push(`👥 Customer base: ${metrics.totalCustomers} clients registered (${metrics.activeCustomersCount} active).`);
+  }
+
+  const dynamicSummary = narrativeParts.join(" ");
+
   return {
     score: totalScore,
     status: totalScore >= 80 ? "Optimal" : totalScore >= 60 ? "Stable" : "Needs Attention",
-    summary: `Composite Health Score calculated across 4 pillars: Financial (${financialScore}/30), Inventory (${inventoryScore}/25), Customers (${customerScore}/25), Operations (${operationsScore}/20).`,
+    summary: dynamicSummary,
     pillars: [
       { name: "Financial & Cash Flow", score: `${financialScore}/30`, percent: Math.round((financialScore / 30) * 100), factors: financialFactors },
       { name: "Inventory & Fulfillment", score: `${inventoryScore}/25`, percent: Math.round((inventoryScore / 25) * 100), factors: inventoryFactors },

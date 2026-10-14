@@ -147,11 +147,71 @@ export default function AIHome() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-6">
-        <h2 className="text-xl font-semibold text-white">AI Summary</h2>
-        <p className="mt-2 text-slate-300">
-          {health?.summary || "Your business performance is being analyzed live from your latest workspace data."}
+      {/* Dynamic AI Executive Summary Card */}
+      <div className="rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 p-6 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
+              <Brain size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>Executive AI Intelligence Summary</span>
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                  Live DB Feed
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400">Auto-generated synthesis from your real business ledger.</p>
+            </div>
+          </div>
+
+          <Link
+            to="/ai/chat"
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 transition"
+          >
+            <MessageSquare size={13} /> Ask Copilot
+          </Link>
+        </div>
+
+        {/* Dynamic Narrative */}
+        <p className="text-sm leading-relaxed text-slate-200 bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
+          {loading ? (
+            <span className="text-slate-400 italic">Synthesizing live revenue, catalog, and workforce metrics...</span>
+          ) : (
+            health?.summary || "Your business performance is being analyzed live from your latest workspace data."
+          )}
         </p>
+
+        {/* Live Metrics Quick Badges */}
+        {health?.metrics && (
+          <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium">
+              💰 Revenue: ₹{Number(health.metrics.totalRevenue || 0).toLocaleString("en-IN")}
+            </span>
+            {health.metrics.pendingRevenue > 0 && (
+              <span className="px-3 py-1 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium">
+                ⚠️ Receivables: ₹{Number(health.metrics.pendingRevenue || 0).toLocaleString("en-IN")}
+              </span>
+            )}
+            <span className="px-3 py-1 rounded-xl bg-sky-500/10 text-sky-300 border border-sky-500/20 font-medium">
+              👥 Clients: {health.metrics.totalCustomers || 0}
+            </span>
+            <span className="px-3 py-1 rounded-xl bg-purple-500/10 text-purple-300 border border-purple-500/20 font-medium">
+              📅 Bookings: {health.metrics.totalAppointments || 0}
+            </span>
+            <span
+              className={`px-3 py-1 rounded-xl border font-medium ${
+                (health.metrics.lowStockCount || 0) + (health.metrics.outOfStockCount || 0) > 0
+                  ? "bg-rose-500/10 text-rose-300 border-rose-500/20"
+                  : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+              }`}
+            >
+              📦 Stock Alerts: {(health.metrics.lowStockCount || 0) + (health.metrics.outOfStockCount || 0)} items
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
