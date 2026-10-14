@@ -116,7 +116,29 @@ const tenantSchema = new mongoose.Schema(
       },
     },
 
+    telegramConfig: {
+      botToken: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      botUsername: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      connected: {
+        type: Boolean,
+        default: false,
+      },
+      connectedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
     openTime: {
+
       type: String,
       default: "",
       trim: true,

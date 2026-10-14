@@ -32,8 +32,11 @@ import notificationRoutes from "./routes/notification.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import auditLogRoutes from "./routes/auditLog.routes.js";
+import telegramRoutes from "./routes/telegram.routes.js";
+import { initializeConnectedTelegramBots } from "./services/telegramBot.service.js";
 
 // Connect to Master MongoDB
+
 connectDB();
 
 const app = express();
@@ -123,6 +126,9 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/audit-logs", auditLogRoutes);
+app.use("/api/telegram", telegramRoutes);
+app.use("/telegram", telegramRoutes);
+
 
 // ==========================================
 // HEALTH CHECK & DIAGNOSTICS
@@ -204,4 +210,8 @@ app.use((err, req, res, next) => {
 // ==========================================
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  initializeConnectedTelegramBots().catch((err) =>
+    console.warn("⚠️ Failed to start Telegram bots on launch:", err.message)
+  );
 });
+
