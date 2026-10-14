@@ -33,6 +33,7 @@ import { fetchAttendance, clockIn, clockOut } from "@/api/attendance.api";
 import { fetchLeaves, fetchLeaveBalance } from "@/api/leaves.api";
 import { fetchNotifications } from "@/api/notifications.api";
 import { fetchTasks, updateTask, createTask } from "@/api/tasks.api";
+import API from "@/api/axios";
 
 const getRows = (response, key) => response?.[key] || response?.data || [];
 const today = () => new Date().toISOString().slice(0, 10);
@@ -67,6 +68,7 @@ export default function EmployeeDashboard() {
     leaves: [],
     notifications: [],
   });
+  const [companyName, setCompanyName] = useState("");
   const [leaveBalances, setLeaveBalances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -98,6 +100,7 @@ export default function EmployeeDashboard() {
         leaveResponse,
         notificationResponse,
         balanceResponse,
+        tenantResponse,
       ] = await Promise.all([
         fetchAppointments(token),
         fetchTasks(token),
@@ -107,6 +110,7 @@ export default function EmployeeDashboard() {
         user?.employeeId
           ? fetchLeaveBalance(user.employeeId, token).catch(() => ({ balance: [] }))
           : Promise.resolve({ balance: [] }),
+        API.get("/tenant/me").catch(() => null),
       ]);
 
       setData({
@@ -118,6 +122,10 @@ export default function EmployeeDashboard() {
       });
 
       setLeaveBalances(balanceResponse.balance || balanceResponse.data || []);
+
+      if (tenantResponse?.data?.success && tenantResponse.data.data?.companyName) {
+        setCompanyName(tenantResponse.data.data.companyName);
+      }
     } catch (loadError) {
       setError(loadError.message || "Unable to load your operational workspace.");
     } finally {
@@ -387,7 +395,7 @@ export default function EmployeeDashboard() {
             </p>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Business OS
+              {loading ? "Syncing Workspace..." : (companyName || user?.businessName || "Your Enterprise")}
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">

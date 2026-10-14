@@ -58,8 +58,10 @@ export default function Topbar({ business }) {
 
         {/* Left */}
         <div className="min-w-0">
-          <h2 className="truncate font-['Space_Grotesk'] text-lg font-bold text-white">
-            Business OS
+          <h2 className="truncate font-['Space_Grotesk'] text-lg font-bold text-white flex items-center gap-1.5">
+            <span>{business?.companyName || "Your Enterprise"}</span>
+            <span className="text-slate-500 font-normal">•</span>
+            <span className="text-indigo-400 font-bold">Business OS</span>
           </h2>
 
           <p className="text-xs text-slate-400">

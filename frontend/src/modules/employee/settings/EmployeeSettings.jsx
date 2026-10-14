@@ -20,10 +20,25 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  Send,
+  Copy,
+  Check,
+  ExternalLink,
+  Unlink,
+  Loader2,
+  Clock,
+  MessageSquare,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchMyEmployeeProfile, updateMyEmployeeProfile } from "@/api/employees.api";
 import { updatePasswordApi } from "@/api/auth.api";
+import {
+  getTelegramStatus,
+  generateTelegramLinkToken,
+  getTelegramAccountStatus,
+  unlinkTelegramAccount,
+} from "@/api/telegram.api";
 
 export default function EmployeeSettings() {
   const { user, token } = useAuth();
@@ -82,6 +97,85 @@ export default function EmployeeSettings() {
     shiftReminders: true,
     bookingAlerts: true,
   });
+
+  // Telegram Integration State
+  const [telegramStatus, setTelegramStatus] = useState({ connected: false, botUsername: "" });
+  const [accountStatus, setAccountStatus] = useState({
+    linked: false,
+    telegramUsername: "",
+    telegramChatId: "",
+    telegramLinkedAt: null,
+  });
+  const [linkingToken, setLinkingToken] = useState(null);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [loadingTelegram, setLoadingTelegram] = useState(false);
+
+  const loadTelegramData = useCallback(async () => {
+    try {
+      setLoadingTelegram(true);
+      const [statusRes, accountRes] = await Promise.allSettled([
+        getTelegramStatus(),
+        getTelegramAccountStatus(),
+      ]);
+      if (statusRes.status === "fulfilled" && statusRes.value?.success) {
+        setTelegramStatus(statusRes.value.data || { connected: false });
+      }
+      if (accountRes.status === "fulfilled" && accountRes.value?.success) {
+        setAccountStatus(accountRes.value.data || { linked: false });
+      }
+    } catch (e) {
+      console.warn("Failed to load Telegram integration status:", e);
+    } finally {
+      setLoadingTelegram(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTelegramData();
+  }, [loadTelegramData]);
+
+  const handleGenerateLinkCode = async () => {
+    setGeneratingCode(true);
+    try {
+      const res = await generateTelegramLinkToken();
+      if (res.success && res.data) {
+        setLinkingToken(res.data);
+      }
+    } catch (err) {
+      setError("Failed to generate linking token: " + (err.response?.data?.message || err.message));
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const handleUnlinkTelegram = async () => {
+    if (
+      !window.confirm(
+        "Are you sure you want to unlink your Telegram account? You will stop receiving shift alerts on Telegram."
+      )
+    )
+      return;
+    setUnlinking(true);
+    try {
+      await unlinkTelegramAccount();
+      setAccountStatus({ linked: false, telegramUsername: "", telegramChatId: "" });
+      setLinkingToken(null);
+      setSuccess("Your Telegram account has been disconnected.");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err) {
+      setError("Failed to unlink Telegram: " + (err.response?.data?.message || err.message));
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
+  const handleCopyCode = (code) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
 
   // Fetch full employee profile
   const loadProfile = useCallback(async () => {
@@ -222,6 +316,7 @@ export default function EmployeeSettings() {
     { id: "appearance", label: "Appearance & Theme", icon: Palette },
     { id: "security", label: "Security & Password", icon: Shield },
     { id: "notifications", label: "Notifications & Alerts", icon: Bell },
+    { id: "telegram", label: "Telegram Assistant", icon: Send },
   ];
 
   return (
@@ -858,6 +953,227 @@ export default function EmployeeSettings() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* ─── TAB 5: TELEGRAM ASSISTANT ─── */}
+      {activeTab === "telegram" && (
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-md shadow-sky-500/10">
+                <Send size={18} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Telegram Staff Assistant</span>
+                  <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400 border border-sky-500/20">
+                    Bot Automation
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Connect your Telegram account for real-time task alerts, shift reminders, and self-service commands
+                </p>
+              </div>
+            </div>
+
+            <div>
+              {accountStatus.linked ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
+                  <CheckCircle2 size={13} />
+                  <span>Linked as @{accountStatus.telegramUsername || "Staff"}</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-400">
+                  <Clock size={13} />
+                  <span>Not Linked Yet</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Bot connection notice */}
+          {!telegramStatus.connected ? (
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-950/20 p-5 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+                <AlertCircle size={16} />
+                <span>Workspace Telegram Bot Inactive</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Your enterprise workspace has not yet configured a Telegram Bot token. Once your administrator connects the Telegram bot in Workspace Settings, you will be able to generate a linking code here and connect your personal account.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Bot info badge */}
+              <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-800 bg-slate-950/60">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/20 text-sky-400">
+                    <Bot size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">Connected Enterprise Bot</p>
+                    <p className="text-sm font-bold text-white">
+                      @{telegramStatus.botUsername}
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://t.me/${telegramStatus.botUsername}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-semibold transition"
+                >
+                  <span>Open Bot</span>
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+
+              {accountStatus.linked ? (
+                /* Linked State Details */
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/15 p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                          Active Account Link
+                        </p>
+                        <p className="text-sm font-bold text-white flex items-center gap-2">
+                          <span>User ID:</span>
+                          <code className="rounded bg-slate-900 border border-slate-800 px-2 py-0.5 font-mono text-sky-400 text-xs">
+                            {accountStatus.telegramChatId}
+                          </code>
+                        </p>
+                        {accountStatus.telegramLinkedAt && (
+                          <p className="text-[11px] text-slate-400">
+                            Linked on {new Date(accountStatus.telegramLinkedAt).toLocaleDateString()} at {new Date(accountStatus.telegramLinkedAt).toLocaleTimeString()}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={handleUnlinkTelegram}
+                        disabled={unlinking}
+                        className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-4 py-2 text-xs font-semibold text-rose-300 transition disabled:opacity-50"
+                      >
+                        {unlinking ? <Loader2 size={13} className="animate-spin" /> : <Unlink size={13} />}
+                        <span>Unlink Telegram</span>
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-slate-300 border-t border-emerald-500/10 pt-3 leading-relaxed">
+                      You are receiving instant alerts on Telegram for task assignments, schedule shifts, and leave approvals. You can also interact with the bot at any time using direct Telegram commands.
+                    </p>
+                  </div>
+
+                  {/* Interactive Commands Cheat Sheet */}
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <MessageSquare size={14} className="text-indigo-400" />
+                      <span>Available Telegram Commands</span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                      <div className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-800 bg-slate-900/60">
+                        <code className="rounded bg-slate-800 px-2 py-0.5 text-sky-400 font-mono font-bold">/tasks</code>
+                        <span className="text-slate-300">View your active assigned tasks</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-800 bg-slate-900/60">
+                        <code className="rounded bg-slate-800 px-2 py-0.5 text-sky-400 font-mono font-bold">/attendance</code>
+                        <span className="text-slate-300">Check current shift & duty clock</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-800 bg-slate-900/60">
+                        <code className="rounded bg-slate-800 px-2 py-0.5 text-sky-400 font-mono font-bold">/leaves</code>
+                        <span className="text-slate-300">Check remaining leave quota</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-800 bg-slate-900/60">
+                        <code className="rounded bg-slate-800 px-2 py-0.5 text-sky-400 font-mono font-bold">/start</code>
+                        <span className="text-slate-300">Open interactive staff button menu</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Unlinked State: Instructions & Code Generation */
+                <div className="space-y-5">
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-white">How to Connect in 3 Simple Steps:</h4>
+                    <ol className="space-y-2 text-xs text-slate-300 list-decimal list-inside leading-relaxed bg-slate-950/40 p-4 rounded-2xl border border-slate-800">
+                      <li>
+                        Click the <strong className="text-sky-300 font-semibold">Generate Linking Code</strong> button below to obtain a secure single-use 15-minute PIN.
+                      </li>
+                      <li>
+                        Click the <strong className="text-emerald-300 font-semibold">Open in Telegram & Connect</strong> button (or open the Telegram app and search for <code className="text-white font-mono">@{telegramStatus.botUsername}</code>).
+                      </li>
+                      <li>
+                        Click <strong className="text-white">Start</strong> or send <code className="text-sky-300 font-mono">/link &lt;CODE&gt;</code> in the chat to instantly activate your staff bot connection.
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+                    <button
+                      onClick={handleGenerateLinkCode}
+                      disabled={generatingCode}
+                      className="flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-sky-600/30 transition disabled:opacity-50"
+                    >
+                      {generatingCode ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                      <span>{linkingToken ? "Generate New Code" : "Generate Linking Code"}</span>
+                    </button>
+
+                    <button
+                      onClick={loadTelegramData}
+                      disabled={loadingTelegram}
+                      className="text-xs text-slate-400 hover:text-white underline transition"
+                    >
+                      {loadingTelegram ? "Checking status..." : "Refresh Connection Status"}
+                    </button>
+                  </div>
+
+                  {linkingToken && (
+                    <div className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <span className="text-[11px] font-semibold text-sky-400 uppercase tracking-wider">
+                            Your One-Time Telegram Linking Code
+                          </span>
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <span className="text-2xl font-mono font-extrabold text-white tracking-widest bg-slate-900 border border-slate-700 px-4 py-1.5 rounded-xl shadow-inner">
+                              {linkingToken.code}
+                            </span>
+                            <button
+                              onClick={() => handleCopyCode(linkingToken.code)}
+                              className="p-2.5 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                              title="Copy Code"
+                            >
+                              {copiedCode ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Expires in 15 minutes. Single-use security token.
+                          </p>
+                        </div>
+
+                        {telegramStatus.botUsername && (
+                          <a
+                            href={`https://t.me/${telegramStatus.botUsername}?start=link_${linkingToken.code}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition self-stretch sm:self-auto justify-center"
+                          >
+                            <Send size={14} />
+                            <span>Open in Telegram & Connect Now</span>
+                            <ExternalLink size={12} />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       )}
     </div>

@@ -13,6 +13,7 @@ import {
   Send,
   Image,
   Sparkles,
+  Upload,
 } from "lucide-react";
 import API from "@/api/axios";
 
@@ -147,6 +148,23 @@ function Masters() {
     setEditingId(null);
     setForm(emptyForm);
     setError("");
+  };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Please choose an image file under 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result;
+      if (result) {
+        setForm((prev) => ({ ...prev, photoUrl: result }));
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // ==========================================
@@ -501,21 +519,50 @@ function Masters() {
             {form.type === "Birthday & Anniversary Wishes" && (
               <>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300 flex items-center gap-1.5">
-                    <Image size={15} className="text-indigo-400" />
-                    <span>Greeting Card / Poster Photo URL</span>
+                  <label className="mb-2 block text-sm font-medium text-slate-300 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Image size={15} className="text-indigo-400" />
+                      <span>Greeting Card / Banner Photo</span>
+                    </span>
+                    {form.photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, photoUrl: "" }))}
+                        className="text-xs text-rose-400 hover:text-white transition"
+                      >
+                        Remove Photo
+                      </button>
+                    )}
                   </label>
-                  <input
-                    type="url"
-                    name="photoUrl"
-                    value={form.photoUrl || ""}
-                    onChange={handleChange}
-                    disabled={saving}
-                    placeholder="https://images.unsplash.com/photo-... or custom banner link"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-indigo-500 text-xs"
-                  />
+
+                  <div className="space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <label className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2.5 text-xs font-semibold text-indigo-300 transition cursor-pointer shrink-0">
+                        <Upload size={14} />
+                        <span>Upload Photo from Device</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                          className="hidden"
+                          disabled={saving}
+                        />
+                      </label>
+
+                      <input
+                        type="text"
+                        name="photoUrl"
+                        value={form.photoUrl || ""}
+                        onChange={handleChange}
+                        disabled={saving}
+                        placeholder="Or paste an image URL here..."
+                        className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-white outline-none placeholder:text-slate-600 focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+                  </div>
+
                   <p className="mt-1 text-[11px] text-slate-500">
-                    This photo banner will be embedded directly at the top of the celebration email.
+                    Upload an image or paste a link. This banner will be displayed on greeting emails.
                   </p>
                 </div>
 

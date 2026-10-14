@@ -17,22 +17,33 @@ import {
   ClipboardList,
   CalendarRange,
   Zap,
+  SunMedium,
+  TrendingUp,
+  FileText,
+  BadgeCheck,
+  Building,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { sendAIChat } from "@/api/ai.api";
+import { sendAIChat, fetchAIHealth } from "@/api/ai.api";
+import { fetchAppointments } from "@/api/appointments.api";
+import { fetchTasks } from "@/api/tasks.api";
+import { fetchAttendance } from "@/api/attendance.api";
+import { fetchLeaves } from "@/api/leaves.api";
 
 export default function EmployeeAIChat() {
   const { user, token } = useAuth();
   const [messages, setMessages] = useState([
     {
       type: "ai",
-      text: `### 🤖 Hello ${user?.name || "there"}! I'm your Staff AI Operations Copilot\n\nI can help you navigate your work schedule, check attendance, view task priorities, clarify company leave policies, and draft professional client communications.\n\nPick a quick question below or ask me anything!`,
+      text: `### 🤖 Welcome to your AI Staff Copilot\n\nHello **${user?.name || "there"}**! I am connected directly to your workspace records: **Duty Schedule**, **Assigned Tasks**, **Shift Attendance**, and **Leave Entitlements**.\n\nClick **"1-Click Shift Briefing"** above, tap the 🎤 microphone to ask by voice, or type any question below!`,
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [speakingIndex, setSpeakingIndex] = useState(null);
   const [isListening, setIsListening] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [briefingLoading, setBriefingLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -53,6 +64,7 @@ export default function EmployeeAIChat() {
       .replace(/\*/g, "")
       .replace(/`{1,3}[^`]*`{1,3}/g, "")
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
       .replace(/\n+/g, ". ")
       .trim();
   };
@@ -84,9 +96,11 @@ export default function EmployeeAIChat() {
 
   // Voice speech-to-text
   const toggleListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
     if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
+      alert("Voice input is not supported in this browser. Please use Google Chrome or Edge.");
       return;
     }
 
@@ -106,8 +120,9 @@ export default function EmployeeAIChat() {
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         if (transcript) {
-          setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+          setInput(transcript);
         }
+        setIsListening(false);
       };
       recognition.onerror = () => setIsListening(false);
       recognition.onend = () => setIsListening(false);
@@ -119,35 +134,52 @@ export default function EmployeeAIChat() {
     }
   };
 
-  const handleSend = async (queryText) => {
-    const textToSend = queryText || input;
-    if (!textToSend.trim() || loading || !token) return;
+  // 1-Click Shift Briefing Generator
+  const handleShiftBriefing = async () => {
+    setBriefingLoading(true);
+    const briefingQuery = `Generate my Shift Briefing for today. Include my appointment schedule today, urgent tasks assigned to me, my attendance status, and any helpful service delivery reminders.`;
+    await handleSend(null, briefingQuery);
+    setBriefingLoading(false);
+  };
 
-    const userMessage = { type: "user", text: textToSend.trim() };
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+  // Send message
+  const handleSend = async (e, textOverride) => {
+    e?.preventDefault();
+    const query = (textOverride || input).trim();
+    if (!query || loading || !token) return;
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+    }
+
+    const userMsg = { type: "user", text: query };
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
-      const history = updatedMessages.map((m) => ({
-        role: m.type === "ai" ? "assistant" : "user",
+      const historyPayload = messages.slice(-6).map((m) => ({
+        role: m.type === "user" ? "user" : "assistant",
         content: m.text,
       }));
 
       // Augment query with employee persona context
-      const contextualPrompt = `[Context: I am staff member ${user?.name || "an employee"} in department ${user?.department || "Operations"}, employeeId: ${user?.employeeId || ""}. Provide helpful, concise operational answers based on our tenant data]. ${textToSend.trim()}`;
+      const contextualPrompt = `[Context: I am staff member ${user?.name || "an employee"} in department ${user?.department || "Operations"}, employeeId: ${user?.employeeId || ""}. Provide helpful, accurate, and concise operational responses using our live tenant data]. ${query}`;
 
-      const res = await sendAIChat(contextualPrompt, history.slice(-6), token);
-      const reply = res.reply || res.message || res.data || "I processed your request with the live workspace.";
+      // CORRECT PARAMETER ORDER: (message, token, conversationHistory)
+      const res = await sendAIChat(contextualPrompt, token, historyPayload);
+      const aiReply =
+        res.reply || res.message || "I analyzed your request against your latest operational data.";
 
-      setMessages((prev) => [...prev, { type: "ai", text: reply }]);
+      setMessages((prev) => [...prev, { type: "ai", text: aiReply }]);
     } catch (err) {
+      console.error("AI Copilot Query Error:", err);
       setMessages((prev) => [
         ...prev,
         {
           type: "ai",
-          text: `⚠️ **Workspace AI Notice:** Unable to reach the assistant service at this moment (${err.message}). Please check back shortly.`,
+          text: `⚠️ **AI Copilot Notice:** Unable to reach the assistant service at this moment (${err.message}). Please check back shortly.`,
         },
       ]);
     } finally {
@@ -155,69 +187,133 @@ export default function EmployeeAIChat() {
     }
   };
 
-  const quickPrompts = [
-    { label: "My Appointments", query: "What are my assigned appointments and client visits scheduled today?", icon: Calendar },
-    { label: "Active Tasks", query: "What are the high-priority tasks currently assigned to me?", icon: ClipboardList },
-    { label: "Leave Balance", query: "How many casual, sick, and earned leaves do I have remaining this year?", icon: CalendarRange },
-    { label: "Shift Advice", query: "Give me operational tips for delivering top-rated client service today.", icon: Zap },
+  // Categories & Quick Prompts
+  const categories = [
+    { id: "all", label: "All Operational Inquiries" },
+    { id: "schedule", label: "Schedule & Visits" },
+    { id: "tasks", label: "Assigned Tasks" },
+    { id: "leaves", label: "Leaves & Attendance" },
+    { id: "guidelines", label: "Work Guidelines" },
   ];
+
+  const categorizedPrompts = {
+    all: [
+      { text: "What appointments are scheduled for me today?", label: "Today's Schedule", icon: Calendar },
+      { text: "What high-priority tasks do I need to finish today?", label: "Priority Tasks", icon: ClipboardList },
+      { text: "How many casual and sick leaves do I have left?", label: "Leave Balance", icon: CalendarRange },
+      { text: "What are best practices for client satisfaction in our business?", label: "Service Tips", icon: Zap },
+    ],
+    schedule: [
+      { text: "Give me a breakdown of all appointments on my roster today.", label: "Detailed Roster", icon: Calendar },
+      { text: "How should I handle a client rescheduling request professionally?", label: "Reschedule Etiquette", icon: FileText },
+    ],
+    tasks: [
+      { text: "List all pending tasks assigned to me sorted by urgency.", label: "Pending Tasks", icon: ClipboardList },
+      { text: "Help me prioritize my workload for maximum productivity today.", label: "Task Strategy", icon: TrendingUp },
+    ],
+    leaves: [
+      { text: "Explain company guidelines for requesting planned vs emergency leave.", label: "Leave Rules", icon: CalendarRange },
+      { text: "How do I request an attendance correction if I forgot to clock in?", label: "Attendance Correction", icon: Clock },
+    ],
+    guidelines: [
+      { text: "Draft a polite reminder message to send a client before their appointment.", label: "Client Reminder Draft", icon: FileText },
+      { text: "What are the standard health & safety procedures for our station?", label: "Station Hygiene", icon: CheckCircle2 },
+    ],
+  };
+
+  const currentPrompts = categorizedPrompts[activeCategory] || categorizedPrompts.all;
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-5xl mx-auto space-y-4">
-      {/* ─── HEADER ─── */}
-      <div className="flex items-center justify-between rounded-2xl border border-indigo-500/20 bg-slate-900/90 p-4 shadow-xl">
+      {/* ─── HEADER BAR ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-indigo-500/20 bg-slate-900/90 p-4 shadow-xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-600/30">
-            <Sparkles size={20} />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-600/30 shrink-0">
+            <Sparkles size={22} />
           </div>
           <div>
-            <h1 className="text-base font-bold text-white flex items-center gap-2">
-              Staff Operations Copilot
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-white">
+                Staff Operations Copilot
+              </h1>
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Live AI
               </span>
-            </h1>
+            </div>
             <p className="text-xs text-slate-400">
-              Ask about your schedule, attendance, policies, or client notes
+              Live intelligence connected to your schedule, tasks, attendance & policies
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 1-Click Shift Briefing Button */}
+          <button
+            onClick={handleShiftBriefing}
+            disabled={briefingLoading || loading}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition disabled:opacity-50 cursor-pointer"
+          >
+            {briefingLoading ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <SunMedium size={14} className="text-amber-300" />
+            )}
+            <span>1-Click Shift Briefing</span>
+          </button>
+
           <button
             onClick={() =>
               setMessages([
                 {
                   type: "ai",
-                  text: `Chat reset. How can I assist you with your shift operations, ${user?.name || "today"}?`,
+                  text: `Chat session refreshed. What can I help you accomplish on your shift, ${user?.name || "today"}?`,
                 },
               ])
             }
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400 hover:text-white transition"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-400 hover:text-white transition"
             title="Reset conversation"
           >
             <RotateCcw size={13} />
             <span className="hidden sm:inline">Reset</span>
           </button>
+
           <Link
             to="/employee/dashboard"
-            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400 hover:text-white transition"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-400 hover:text-white transition"
           >
             Exit
           </Link>
         </div>
       </div>
 
-      {/* ─── QUICK PROMPT PILLS ─── */}
+      {/* ─── CATEGORY FILTER TABS ─── */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {quickPrompts.map((p) => {
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+              activeCategory === cat.id
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
+                : "border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ─── QUICK QUERY PILLS FOR ACTIVE CATEGORY ─── */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {currentPrompts.map((p) => {
           const Icon = p.icon;
           return (
             <button
               key={p.label}
               disabled={loading}
-              onClick={() => handleSend(p.query)}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800/80 bg-slate-900/80 hover:border-indigo-500/50 hover:bg-slate-800/90 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white whitespace-nowrap transition shadow-sm cursor-pointer disabled:opacity-50"
+              onClick={() => handleSend(null, p.text)}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-800/80 bg-slate-900/90 hover:border-indigo-500/50 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white whitespace-nowrap transition shadow-sm cursor-pointer disabled:opacity-50"
             >
               <Icon size={13} className="text-indigo-400" />
               <span>{p.label}</span>
@@ -252,7 +348,9 @@ export default function EmployeeAIChat() {
 
                 {isAi && (
                   <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>AI Assistant</span>
+                    <span className="flex items-center gap-1 text-indigo-400 font-semibold">
+                      <Sparkles size={11} /> AI Staff Copilot
+                    </span>
                     <button
                       onClick={() => toggleSpeak(m.text, idx)}
                       className="flex items-center gap-1 text-slate-400 hover:text-indigo-300 transition"
@@ -266,7 +364,7 @@ export default function EmployeeAIChat() {
                       ) : (
                         <>
                           <Volume2 size={13} />
-                          <span>Read</span>
+                          <span>Read Aloud</span>
                         </>
                       )}
                     </button>
@@ -290,7 +388,7 @@ export default function EmployeeAIChat() {
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400 flex items-center gap-2">
               <Loader2 size={14} className="animate-spin text-indigo-400" />
-              <span>Analyzing live workspace data...</span>
+              <span>Consulting operational database and synthesizing response...</span>
             </div>
           </div>
         )}
@@ -300,10 +398,7 @@ export default function EmployeeAIChat() {
 
       {/* ─── INPUT DOCK ─── */}
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSend();
-        }}
+        onSubmit={handleSend}
         className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-xl"
       >
         <button
@@ -324,7 +419,7 @@ export default function EmployeeAIChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={
-            isListening ? "Listening... speak now" : "Ask anything about your tasks, schedule, or company guidelines..."
+            isListening ? "Listening to your voice..." : "Ask anything about your tasks, schedule, attendance, or procedures..."
           }
           className="flex-1 bg-transparent px-2 text-xs sm:text-sm text-white outline-none placeholder:text-slate-500"
         />
