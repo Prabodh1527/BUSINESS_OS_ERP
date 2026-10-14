@@ -30,8 +30,8 @@ export const updateWhatsAppPreferences = async (notificationPreferences) => {
   return res.data;
 };
 
-export const sendWhatsAppTestMessage = async ({ recipientPhone, message }) => {
-  const res = await API.post("/whatsapp/send-test", { recipientPhone, message });
+export const sendWhatsAppTestMessage = async ({ recipientPhone, message, useTemplate, templateName }) => {
+  const res = await API.post("/whatsapp/send-test", { recipientPhone, message, useTemplate, templateName });
   return res.data;
 };
 

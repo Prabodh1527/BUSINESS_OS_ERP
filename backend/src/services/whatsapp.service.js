@@ -71,25 +71,39 @@ export async function verifyWhatsAppCredentials({ phoneNumberId, accessToken }) 
 
 /**
  * Send official WhatsApp message via Meta Cloud API
+ * Supports both freeform text (within 24h window) and official pre-approved templates (like 'hello_world')
  */
-export async function sendWhatsAppMessage({ phoneNumberId, accessToken, to, text }) {
+export async function sendWhatsAppMessage({ phoneNumberId, accessToken, to, text, templateName, languageCode = "en_US" }) {
   const recipient = sanitizePhoneNumber(to);
-  if (!recipient || !phoneNumberId || !accessToken || !text) {
+  if (!recipient || !phoneNumberId || !accessToken || (!text && !templateName)) {
     return { success: false, error: "Missing required parameters for WhatsApp message." };
   }
 
   try {
     const url = `${META_GRAPH_BASE}/${phoneNumberId}/messages`;
-    const payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: recipient,
-      type: "text",
-      text: {
-        preview_url: true,
-        body: text,
-      },
-    };
+    
+    // Choose payload: template or freeform text
+    const payload = templateName
+      ? {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: recipient,
+          type: "template",
+          template: {
+            name: templateName,
+            language: { code: languageCode },
+          },
+        }
+      : {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: recipient,
+          type: "text",
+          text: {
+            preview_url: true,
+            body: text,
+          },
+        };
 
     const response = await fetch(url, {
       method: "POST",
@@ -102,12 +116,15 @@ export async function sendWhatsAppMessage({ phoneNumberId, accessToken, to, text
 
     const data = await response.json();
     if (data.messages && data.messages.length > 0) {
-      return { success: true, messageId: data.messages[0].id };
+      return { success: true, messageId: data.messages[0].id, type: payload.type };
     }
 
+    const errMsg = data.error?.error_user_msg || data.error?.message || "Failed to deliver WhatsApp message.";
+    const errDetails = data.error?.error_data?.details || "";
     return {
       success: false,
-      error: data.error?.message || "Failed to deliver WhatsApp message.",
+      error: errDetails ? `${errMsg} (${errDetails})` : errMsg,
+      rawError: data.error,
     };
   } catch (err) {
     return { success: false, error: err.message };

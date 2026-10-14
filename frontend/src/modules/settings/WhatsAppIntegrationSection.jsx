@@ -194,10 +194,10 @@ export default function WhatsAppIntegrationSection() {
     }
   };
 
-  // Send Direct Test Message
-  const handleSendTestMessage = async () => {
+  // Send Direct Test Message (Template or Freeform)
+  const handleSendTestMessage = async (useTemplate = false) => {
     if (!testRecipientPhone) {
-      setTestFeedback({ type: "error", message: "Please enter a valid phone number." });
+      setTestFeedback({ type: "error", message: "Please enter a valid phone number with country code (e.g. 917304656349)." });
       return;
     }
     setTestSending(true);
@@ -206,6 +206,7 @@ export default function WhatsAppIntegrationSection() {
       const res = await sendWhatsAppTestMessage({
         recipientPhone: testRecipientPhone,
         message: `Hello! This is a test notification from Business OS WhatsApp integration. Meta Cloud API is running smoothly.`,
+        useTemplate,
       });
       if (res.success) {
         setTestFeedback({
@@ -224,7 +225,7 @@ export default function WhatsAppIntegrationSection() {
         message:
           err.response?.data?.message ||
           err.message ||
-          "Failed to deliver test message. Check your Meta phone number permissions.",
+          "Failed to deliver test message. Ensure recipient is on your Meta sandbox whitelist.",
       });
     } finally {
       setTestSending(false);
@@ -489,42 +490,83 @@ export default function WhatsAppIntegrationSection() {
           <div className="grid gap-6 md:grid-cols-2">
             {/* Tool 1: Live API Message Dispatcher */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <Send size={16} className="text-emerald-400" />
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Test Automated WhatsApp Dispatch
-                </h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Send size={16} className="text-emerald-400" />
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Test Automated WhatsApp Dispatch
+                  </h3>
+                </div>
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+                  Meta Official API
+                </span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Send an instant test notification via Meta Cloud API to verify live delivery on your mobile device.
-              </p>
+              
+              {/* WhatsApp 24-Hour Policy Alert */}
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-amber-400 font-medium text-[11px]">
+                  <Info size={13} className="shrink-0" />
+                  <span>Why do custom messages need a reply first?</span>
+                </div>
+                <p className="text-[10px] leading-relaxed text-slate-300">
+                  Meta blocks freeform text until the recipient sends at least one message to the bot number (opening the free 24-hr session).
+                </p>
+                <div className="pt-1 flex flex-wrap gap-2">
+                  <a
+                    href="https://wa.me/15556672013?text=Hi"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-1 text-[10px] font-semibold text-emerald-300 transition"
+                  >
+                    <Smartphone size={11} /> Step 1: Open WhatsApp &amp; Send &ldquo;Hi&rdquo; to Bot
+                    <ExternalLink size={10} />
+                  </a>
+                </div>
+              </div>
 
               <div className="space-y-2.5">
                 <input
                   type="text"
                   value={testRecipientPhone}
                   onChange={(e) => setTestRecipientPhone(e.target.value)}
-                  placeholder="Enter phone with country code (e.g. 919876543210)"
+                  placeholder="Enter recipient phone (e.g. 917304656349)"
                   className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500 font-mono"
                 />
 
-                <button
-                  onClick={handleSendTestMessage}
-                  disabled={testSending || !status.connected || !testRecipientPhone}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 py-2 text-xs font-semibold text-white transition disabled:opacity-40"
-                >
-                  {testSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                  Send Test WhatsApp via API
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Button A: Pre-approved template (Guaranteed immediate delivery) */}
+                  <button
+                    onClick={() => handleSendTestMessage(true)}
+                    disabled={testSending || !status.connected || !testRecipientPhone}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2 px-3 text-[11px] font-semibold text-white transition disabled:opacity-40 shadow-sm shadow-emerald-950"
+                    title="Sends pre-approved template that arrives even outside the 24-hr window"
+                  >
+                    {testSending ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    Send Template (Instant)
+                  </button>
+
+                  {/* Button B: Custom Freeform Text */}
+                  <button
+                    onClick={() => handleSendTestMessage(false)}
+                    disabled={testSending || !status.connected || !testRecipientPhone}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 py-2 px-3 text-[11px] font-semibold text-slate-200 transition disabled:opacity-40"
+                    title="Sends custom text notification (requires recipient to reply 'Hi' first)"
+                  >
+                    {testSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    Send Custom Text
+                  </button>
+                </div>
 
                 {testFeedback.message && (
-                  <p
-                    className={`text-[11px] font-medium ${
-                      testFeedback.type === "success" ? "text-emerald-400" : "text-rose-400"
+                  <div
+                    className={`rounded-lg p-2.5 text-[11px] font-medium border ${
+                      testFeedback.type === "success"
+                        ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                        : "bg-rose-500/10 text-rose-300 border-rose-500/20"
                     }`}
                   >
                     {testFeedback.message}
-                  </p>
+                  </div>
                 )}
               </div>
             </div>

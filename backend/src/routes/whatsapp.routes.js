@@ -306,7 +306,7 @@ router.put("/preferences", async (req, res) => {
  */
 router.post("/send-test", async (req, res) => {
   try {
-    const { recipientPhone, message } = req.body;
+    const { recipientPhone, message, useTemplate = false, templateName } = req.body;
     if (!recipientPhone) {
       return res.status(400).json({ success: false, message: "Recipient phone number is required." });
     }
@@ -328,17 +328,21 @@ router.post("/send-test", async (req, res) => {
       phoneNumberId: phoneId,
       accessToken: token,
       to: recipientPhone,
-      text,
+      text: useTemplate ? undefined : text,
+      templateName: useTemplate || templateName ? (templateName || "hello_world") : undefined,
     });
 
     if (!result.success) {
-      return res.status(400).json({ success: false, message: result.error });
+      return res.status(400).json({ success: false, message: result.error, rawError: result.rawError });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Test WhatsApp message delivered to ${recipientPhone}!`,
+      message: result.type === "template"
+        ? `Pre-approved template message delivered to ${recipientPhone}!`
+        : `Test WhatsApp message dispatched to ${recipientPhone}!`,
       messageId: result.messageId,
+      type: result.type,
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
