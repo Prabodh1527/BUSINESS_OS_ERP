@@ -10,6 +10,7 @@ dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 // Database connection
 import connectDB from "./config/db.js";
+import { createTransporter } from "./utils/email.js";
 
 // Import route handlers
 import authRoutes from "./routes/auth.routes.js";
@@ -72,16 +73,9 @@ app.use(express.urlencoded({ extended: true }));
 // ==========================================
 // NODEMAILER VERIFY
 // ==========================================
-if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  transporter.verify((error) => {
+const startupTransporter = createTransporter();
+if (startupTransporter) {
+  startupTransporter.verify((error) => {
     if (error) {
       console.error("❌ Nodemailer Transporter Error:", error.message);
     } else {
@@ -89,7 +83,7 @@ if (process.env.SMTP_USER && process.env.SMTP_PASS) {
     }
   });
 } else {
-  console.warn("⚠️ SMTP credentials missing in .env file");
+  console.warn("⚠️ SMTP credentials missing in server environment variables (SMTP_USER / SMTP_PASS)");
 }
 
 // ==========================================

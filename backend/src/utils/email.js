@@ -5,15 +5,29 @@ import nodemailer from "nodemailer";
  * Returns null if SMTP configuration is absent, preventing crashes.
  */
 export const createTransporter = () => {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.replace(/\s+/g, "");
+  if (!user || !pass) {
     return null;
   }
+
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const isSecure = port === 465 || !process.env.SMTP_PORT;
+
   return nodemailer.createTransport({
-    service: process.env.SMTP_SERVICE || "gmail",
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port,
+    secure: isSecure,
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user,
+      pass,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 };
 

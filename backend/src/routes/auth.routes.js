@@ -7,6 +7,7 @@ import crypto from "crypto";
 
 import User from "../models/User.js";
 import Tenant from "../models/Tenant.js";
+import { createTransporter } from "../utils/email.js";
 
 const router = express.Router();
 
@@ -505,80 +506,58 @@ router.post(
       // ------------------------------------------
       // SEND EMAIL
       // ------------------------------------------
+      const transporter = createTransporter();
 
-      if (
-        process.env.SMTP_USER &&
-        process.env.SMTP_PASS
-      ) {
-        const transporter =
-          nodemailer.createTransport({
-            service: "gmail",
+      if (!transporter) {
+        console.warn(`⚠️ SMTP not configured on server. Generated OTP for ${normalizedEmail}: ${otp}`);
+        return res.status(500).json({
+          success: false,
+          message: "Email delivery service is not configured on this server. Please ensure SMTP_USER and SMTP_PASS are set in your hosting environment variables (e.g. Render Dashboard).",
+          debugOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+        });
+      }
 
-            auth: {
-              user:
-                process.env.SMTP_USER,
-
-              pass:
-                process.env.SMTP_PASS,
-            },
-          });
-
-        const mailOptions = {
-          from: `Business OS <${process.env.SMTP_USER}>`,
-
-          to: normalizedEmail,
-
-          subject:
-            "Password Reset OTP - Business OS",
-
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-              <h2 style="color: #4f46e5; margin-top: 0;">
-                Password Reset Request
-              </h2>
-
-              <p style="color: #334155;">
-                Use the following OTP code to reset your password.
-                This code will expire in 10 minutes.
-              </p>
-
-              <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center;">
-                <span style="font-family: monospace; font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #1e293b;">
-                  ${otp}
-                </span>
-              </div>
-
-              <p style="color: #64748b; font-size: 13px;">
-                If you didn't request this password reset,
-                please ignore this email.
-              </p>
+      const mailOptions = {
+        from: `Business OS <${process.env.SMTP_USER}>`,
+        to: normalizedEmail,
+        subject: "Password Reset OTP - Business OS",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 500px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <h2 style="color: #4f46e5; margin-top: 0;">
+              Password Reset Request
+            </h2>
+            <p style="color: #334155;">
+              Use the following OTP code to reset your password.
+              This code will expire in 10 minutes.
+            </p>
+            <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center;">
+              <span style="font-family: monospace; font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #1e293b;">
+                ${otp}
+              </span>
             </div>
-          `,
-        };
+            <p style="color: #64748b; font-size: 13px;">
+              If you didn't request this password reset,
+              please ignore this email.
+            </p>
+          </div>
+        `,
+      };
 
-        await transporter.sendMail(
-          mailOptions
-        );
-
-        console.log(
-          `✅ Password reset OTP sent to ${normalizedEmail}`
-        );
-      } else {
-        console.warn(
-          `⚠️ SMTP not configured. OTP generated for ${normalizedEmail}: ${otp}`
-        );
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log(`✅ Password reset OTP sent to ${normalizedEmail}`);
+      } catch (mailErr) {
+        console.error("❌ Email delivery failed:", mailErr.message);
+        return res.status(500).json({
+          success: false,
+          message: `Email delivery failed: ${mailErr.message}. Verify that SMTP_USER and Gmail App Password are valid in hosting environment variables.`,
+        });
       }
 
       return res.status(200).json({
         success: true,
-        message:
-          "Password reset OTP has been sent to your email address.",
-
-        otp:
-          process.env.NODE_ENV ===
-          "development"
-            ? otp
-            : undefined,
+        message: "Password reset OTP has been sent to your email address.",
+        otp: process.env.NODE_ENV === "development" ? otp : undefined,
       });
     } catch (error) {
       console.error(
@@ -917,22 +896,9 @@ router.post(
       // SEND EMAIL
       // ------------------------------------------
 
-      if (
-        process.env.SMTP_USER &&
-        process.env.SMTP_PASS
-      ) {
-        const transporter =
-          nodemailer.createTransport({
-            service: "gmail",
+      const transporter = createTransporter();
 
-            auth: {
-              user:
-                process.env.SMTP_USER,
-
-              pass:
-                process.env.SMTP_PASS,
-            },
-          });
+      if (transporter) {
 
         const mailOptions = {
           from: `Business OS <${process.env.SMTP_USER}>`,
