@@ -32,17 +32,11 @@ import {
   getTelegramLogs,
   sendDailySummaryNow,
 } from "@/api/telegram.api";
+import WhatsAppIntegrationSection from "./WhatsAppIntegrationSection";
 
 const STORAGE_KEY = "business_os_integrations_state";
 
 const defaultIntegrations = [
-  {
-    id: 1,
-    name: "WhatsApp Business API",
-    description: "Send automated booking confirmations and payment receipts.",
-    type: "whatsapp",
-    connected: true,
-  },
   {
     id: 2,
     name: "Online Payment Gateway (Razorpay / Stripe)",
@@ -848,7 +842,10 @@ export default function Integrations() {
         )}
       </div>
 
-      {/* ─── 5. OTHER THIRD-PARTY INTEGRATIONS ─── */}
+      {/* ─── 5. WHATSAPP BUSINESS & 1-CLICK DISPATCH ─── */}
+      <WhatsAppIntegrationSection />
+
+      {/* ─── 6. OTHER THIRD-PARTY INTEGRATIONS ─── */}
       <div>
         <h2 className="text-xl font-bold text-white mb-4">Additional Integrations</h2>
         <div className="grid gap-4 sm:grid-cols-2">

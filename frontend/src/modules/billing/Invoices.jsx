@@ -14,6 +14,7 @@ import {
   FileText,
   Trash2,
   Send,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -207,6 +208,35 @@ export default function Invoices() {
     } catch (err) {
       alert("Failed to send invoice email: " + err.message);
     }
+  };
+
+  // 1-Click 100% Free WhatsApp Direct Dispatch (wa.me)
+  const handleWhatsAppShare = (inv) => {
+    const phone = (inv.customer?.phone || "").replace(/[^0-9]/g, "");
+    const isPaid = inv.status === "PAID";
+    const upiId = inv.upiId || "merchant@upi";
+    const dueStr = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-IN") : "Due upon receipt";
+    const balanceDue = inv.balanceDue !== undefined ? inv.balanceDue : inv.grandTotal;
+
+    const message =
+      `🧾 *Tax Invoice #${inv.invoiceNumber}*\n` +
+      `_From: Business OS_\n\n` +
+      `Dear *${inv.customer?.name || "Valued Client"}*,\n` +
+      `Here are your latest invoice details:\n\n` +
+      `💰 *Grand Total:* ₹${Number(inv.grandTotal || 0).toLocaleString("en-IN")}\n` +
+      `💵 *Amount Paid:* ₹${Number(inv.amountPaid || 0).toLocaleString("en-IN")}\n` +
+      `💳 *Balance Due:* ₹${Number(balanceDue || 0).toLocaleString("en-IN")}\n` +
+      `📊 *Status:* ${isPaid ? "✅ PAID IN FULL" : "🔴 PAYMENT DUE"}\n` +
+      `🗓️ *Due Date:* ${dueStr}\n\n` +
+      (!isPaid
+        ? `📲 *Quick UPI Payment:* Pay to UPI ID \`${upiId}\` or scan our counter QR code.\n\n`
+        : "🎉 *Thank you for your payment!*\n\n") +
+      `_Please reply to this message if you have any questions._`;
+
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
   };
 
 
@@ -420,6 +450,13 @@ export default function Invoices() {
                         <Send size={13} />
                       </button>
                       <button
+                        onClick={() => handleWhatsAppShare(inv)}
+                        className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
+                        title="Share Invoice on WhatsApp (Free 1-Click)"
+                      >
+                        <MessageSquare size={13} />
+                      </button>
+                      <button
                         onClick={() => downloadInvoicePdf(inv._id, inv.invoiceNumber, token)}
                         className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-1.5 text-xs text-violet-400 hover:bg-violet-500/20 transition cursor-pointer"
                         title="Download Tax Invoice PDF"
@@ -509,6 +546,12 @@ export default function Invoices() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h3 className="text-lg font-bold text-white">Invoice Preview</h3>
               <div className="flex gap-2">
+                <button
+                  onClick={() => handleWhatsAppShare(selectedInvoice)}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition shadow-lg shadow-emerald-600/20"
+                >
+                  <MessageSquare size={13} /> Send on WhatsApp
+                </button>
                 <button
                   onClick={downloadPDF}
                   className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition"

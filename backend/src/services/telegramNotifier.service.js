@@ -4,6 +4,11 @@ import Customer from "../models/customer.model.js";
 import Employee from "../models/employee.model.js";
 import TelegramLog from "../models/telegramLog.model.js";
 import { sendTelegramMessage } from "./telegramBot.service.js";
+import {
+  sendWhatsAppMessage,
+  formatInvoiceWhatsAppText,
+  formatAppointmentWhatsAppText,
+} from "./whatsapp.service.js";
 
 /**
  * Helper to retrieve active bot token and config for a tenant
@@ -16,10 +21,8 @@ async function getTenantTelegramContext(tenantId) {
     const token = tenant.telegramConfig?.botToken || process.env.TELEGRAM_BOT_TOKEN;
     const isConnected = tenant.telegramConfig?.connected || Boolean(process.env.TELEGRAM_BOT_TOKEN);
 
-    if (!token || !isConnected) return null;
-
     return {
-      token,
+      token: token && isConnected ? token : null,
       tenant,
       prefs: tenant.telegramConfig?.notificationPreferences || {},
       adminChatId: tenant.telegramConfig?.adminChatId || "",
@@ -55,7 +58,7 @@ async function recordDeliveryLog({ tenantId, event, recipientChatId, recipientNa
  * Send message to an authorized chat ID and record delivery
  */
 async function dispatchToChat({ token, tenantId, chatId, text, replyMarkup, event, recipientName, recipientRole }) {
-  if (!chatId) return false;
+  if (!token || !chatId) return false;
 
   try {
     const res = await sendTelegramMessage(token, chatId, text, replyMarkup);
@@ -85,6 +88,42 @@ async function dispatchToChat({ token, tenantId, chatId, text, replyMarkup, even
       error: err.message,
     });
     return false;
+  }
+}
+
+/**
+ * Dispatch WhatsApp message if tenant has WhatsApp configured
+ */
+async function dispatchWhatsAppIfEnabled({ tenant, to, text, event }) {
+  if (!tenant || !to || !text) return;
+  const config = tenant.whatsappConfig || {};
+  const isConnected = config.connected || Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+  if (!isConnected) return;
+
+  const token = config.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneId = config.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneId) return;
+
+  try {
+    const res = await sendWhatsAppMessage({
+      phoneNumberId: phoneId,
+      accessToken: token,
+      to,
+      text,
+    });
+    if (res.success) {
+      await recordDeliveryLog({
+        tenantId: tenant._id.toString(),
+        event: `WHATSAPP_${event}`,
+        recipientChatId: to,
+        recipientName: "Customer",
+        recipientRole: "CUSTOMER",
+        status: "SENT",
+        text,
+      });
+    }
+  } catch (err) {
+    console.warn("WhatsApp notification error:", err.message);
   }
 }
 
@@ -267,6 +306,18 @@ export async function notifyAppointmentEvent({ tenantId, appointment, eventType 
         recipientRole: "CUSTOMER",
       });
     }
+
+    // 4. WhatsApp Direct Message (if customer phone exists and WhatsApp connected)
+    const customerPhone = appointment.customer?.phone;
+    if (customerPhone && ctx.tenant) {
+      const waText = formatAppointmentWhatsAppText(appointment, companyName, eventType);
+      await dispatchWhatsAppIfEnabled({
+        tenant: ctx.tenant,
+        to: customerPhone,
+        text: waText,
+        event: `APPOINTMENT_${eventType}`,
+      });
+    }
   } catch (err) {
     console.warn("⚠️ Appointment Telegram notification error:", err.message);
   }
@@ -344,8 +395,20 @@ export async function notifyInvoiceEvent({ tenantId, invoice, eventType = "CREAT
         recipientRole: "CUSTOMER",
       });
     }
+
+    // 3. WhatsApp Direct Message (if customer phone exists and WhatsApp connected)
+    const customerPhone = invoice.customer?.phone;
+    if (customerPhone && ctx.tenant) {
+      const waText = formatInvoiceWhatsAppText(invoice, companyName, eventType);
+      await dispatchWhatsAppIfEnabled({
+        tenant: ctx.tenant,
+        to: customerPhone,
+        text: waText,
+        event: `INVOICE_${eventType}`,
+      });
+    }
   } catch (err) {
-    console.warn("⚠️ Invoice Telegram notification error:", err.message);
+    console.warn("⚠️ Invoice notification error:", err.message);
   }
 }
 

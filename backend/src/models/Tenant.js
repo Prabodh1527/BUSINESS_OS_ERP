@@ -156,6 +156,48 @@ const tenantSchema = new mongoose.Schema(
       },
     },
 
+    whatsappConfig: {
+      phoneNumberId: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      accessToken: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      businessAccountId: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      businessPhoneNumber: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      connected: {
+        type: Boolean,
+        default: false,
+      },
+      connectedAt: {
+        type: Date,
+        default: null,
+      },
+      webhookVerifyToken: {
+        type: String,
+        default: "business_os_wa_verify_token",
+      },
+      notificationPreferences: {
+        appointments: { type: Boolean, default: true },
+        invoices: { type: Boolean, default: true },
+        tasks: { type: Boolean, default: true },
+        inventory: { type: Boolean, default: true },
+        dailySummary: { type: Boolean, default: true },
+      },
+    },
+
     openTime: {
 
       type: String,

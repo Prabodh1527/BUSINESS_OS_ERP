@@ -10,6 +10,7 @@ import {
   Calendar,
   Download,
   Trash2,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -130,6 +131,29 @@ export default function Appointments() {
         alert(err.message || "Failed to cancel appointment");
       }
     }
+  };
+
+  // 1-Click 100% Free WhatsApp Direct Dispatch (wa.me)
+  const handleWhatsAppShare = (apt) => {
+    const phone = (apt.customer?.phone || "").replace(/[^0-9]/g, "");
+    const dateStr = apt.date ? new Date(apt.date).toLocaleDateString("en-IN") : "Scheduled date";
+
+    const message =
+      `📅 *Appointment Confirmation*\n` +
+      `_From: Business OS_\n\n` +
+      `Hello *${apt.customer?.name || "Client"}*,\n` +
+      `Your booking details are as follows:\n\n` +
+      `📌 *Booking ID:* \`${apt.appointmentId || "N/A"}\`\n` +
+      `🛠️ *Service:* ${apt.service}\n` +
+      `🗓️ *Date & Time:* ${dateStr} at ${apt.time || "Scheduled time"}\n` +
+      `👨‍💼 *Assigned Specialist:* ${apt.employee || "Assigned Team Member"}\n` +
+      `📊 *Status:* ${apt.status} (${apt.paymentStatus || "UNPAID"})\n\n` +
+      `_Please reply to this message if you have any questions or need to reschedule._`;
+
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
   };
 
   // Export CSV
@@ -385,13 +409,20 @@ export default function Appointments() {
                     </select>
                   </td>
 
-                  <td className="p-4 text-right">
+                  <td className="p-4 text-right space-x-2">
+                    <button
+                      onClick={() => handleWhatsAppShare(item)}
+                      className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
+                      title="Send WhatsApp Confirmation (Free 1-Click)"
+                    >
+                      <MessageSquare size={14} />
+                    </button>
                     <button
                       onClick={() => handleDelete(item._id, item.customer?.name)}
                       className="rounded-lg border border-rose-500/30 p-1.5 text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
                       title="Cancel & Delete"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>
