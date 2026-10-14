@@ -7,6 +7,7 @@ import Attendance from "../models/attendance.model.js";
 import Notification from "../models/notification.model.js";
 import { sendLeaveDecisionEmail } from "../utils/email.js";
 import { getEmployeeIdentity, isEmployeeUser } from "../utils/employeeIdentity.js";
+import { notifyLeaveEvent } from "../services/telegramNotifier.service.js";
 
 const router = express.Router();
 router.use(protect, attachTenantDB);
@@ -184,6 +185,13 @@ router.post("/", async (req, res) => {
       isPaid,
     });
 
+    // Trigger Telegram notification to Admin
+    notifyLeaveEvent({
+      tenantId: req.tenantId,
+      leave: newLeave,
+      eventType: "SUBMITTED",
+    }).catch(() => {});
+
     return res.status(201).json({
       success: true,
       message: "Leave request submitted successfully!",
@@ -264,6 +272,13 @@ router.patch("/:id", async (req, res) => {
       recipientEmployeeId: updated.employeeId || "",
       recipientEmail: updated.employeeEmail || "",
       link: "/employee/leaves",
+    }).catch(() => {});
+
+    // Trigger Telegram notification to Employee
+    notifyLeaveEvent({
+      tenantId: req.tenantId,
+      leave: updated,
+      eventType: updated.status === "Approved" ? "APPROVED" : "REJECTED",
     }).catch(() => {});
 
     return res.status(200).json({

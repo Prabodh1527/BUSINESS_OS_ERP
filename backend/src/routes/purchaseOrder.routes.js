@@ -1,7 +1,8 @@
-﻿import express from "express";
+import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
 import { attachTenantDB } from "../middleware/tenant.middleware.js";
 import PurchaseOrder from "../models/purchaseOrder.model.js";
+import { notifyPurchaseOrderEvent } from "../services/telegramNotifier.service.js";
 
 const router = express.Router();
 
@@ -81,6 +82,12 @@ router.post("/", async (req, res) => {
       status: status || "Pending",
     });
 
+    notifyPurchaseOrderEvent({
+      tenantId: req.tenantId,
+      po: newPO,
+      eventType: "CREATED",
+    }).catch(() => {});
+
     return res.status(201).json({
       success: true,
       message: "Purchase Order created successfully!",
@@ -105,6 +112,12 @@ router.patch("/:id", async (req, res) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: "Purchase Order not found" });
     }
+
+    notifyPurchaseOrderEvent({
+      tenantId: req.tenantId,
+      po: updated,
+      eventType: "STATUS_CHANGED",
+    }).catch(() => {});
 
     return res.status(200).json({
       success: true,

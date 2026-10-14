@@ -2,13 +2,18 @@ import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
 import { attachTenantDB } from "../middleware/tenant.middleware.js";
 import Tenant from "../models/Tenant.js";
+import User from "../models/User.js";
+import TelegramLog from "../models/telegramLog.model.js";
 import {
   verifyTelegramBotToken,
   startTelegramBotPolling,
   stopTelegramBotPolling,
   sendTelegramMessage,
   handleTelegramUpdate,
+  generateUserLinkToken,
+  unlinkTelegramAccount,
 } from "../services/telegramBot.service.js";
+import { notifyDailyBusinessSummary } from "../services/telegramNotifier.service.js";
 import { recordAuditLog } from "../utils/auditLogger.js";
 
 const router = express.Router();
@@ -38,7 +43,7 @@ router.post("/webhook/:tenantId", async (req, res) => {
   }
 });
 
-// Guard configuration routes with authentication
+// Guard all configuration and authenticated routes
 router.use(protect, attachTenantDB);
 
 /**
@@ -73,6 +78,17 @@ router.get("/status", async (req, res) => {
         connectedAt: storedConfig.connectedAt || null,
         hasEnvToken: Boolean(envBotToken),
         maskedToken: effectiveToken ? `${effectiveToken.slice(0, 7)}...${effectiveToken.slice(-5)}` : "",
+        adminChatId: storedConfig.adminChatId || "",
+        notificationPreferences: storedConfig.notificationPreferences || {
+          appointments: true,
+          invoices: true,
+          tasks: true,
+          leaves: true,
+          inventory: true,
+          purchaseOrders: true,
+          dailySummary: true,
+          dailySummaryTime: "09:00",
+        },
       },
     });
   } catch (error) {
@@ -145,8 +161,9 @@ router.post("/connect", async (req, res) => {
       return res.status(404).json({ success: false, message: "Tenant record not found." });
     }
 
-    // Update tenant configuration
+    // Update tenant configuration while preserving existing preferences
     tenant.telegramConfig = {
+      ...(tenant.telegramConfig || {}),
       botToken: token,
       botUsername: verification.bot.username,
       connected: true,
@@ -211,6 +228,186 @@ router.post("/disconnect", async (req, res) => {
       success: true,
       message: "Telegram Bot disconnected successfully.",
       data: { connected: false },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/telegram/preferences
+ * Get tenant notification preferences
+ */
+router.get("/preferences", async (req, res) => {
+  try {
+    const tenant = (await Tenant.findOne({ _id: req.tenantId })) || (await Tenant.findOne({ ownerId: req.user?._id }));
+    const config = tenant?.telegramConfig || {};
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        adminChatId: config.adminChatId || "",
+        notificationPreferences: config.notificationPreferences || {
+          appointments: true,
+          invoices: true,
+          tasks: true,
+          leaves: true,
+          inventory: true,
+          purchaseOrders: true,
+          dailySummary: true,
+          dailySummaryTime: "09:00",
+        },
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * PUT /api/telegram/preferences
+ * Update tenant notification preferences
+ */
+router.put("/preferences", async (req, res) => {
+  try {
+    const { notificationPreferences, adminChatId } = req.body;
+    const tenant = (await Tenant.findOne({ _id: req.tenantId })) || (await Tenant.findOne({ ownerId: req.user?._id }));
+
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: "Tenant record not found." });
+    }
+
+    if (!tenant.telegramConfig) {
+      tenant.telegramConfig = {};
+    }
+
+    if (adminChatId !== undefined) {
+      tenant.telegramConfig.adminChatId = adminChatId.trim();
+    }
+
+    if (notificationPreferences && typeof notificationPreferences === "object") {
+      tenant.telegramConfig.notificationPreferences = {
+        ...tenant.telegramConfig.notificationPreferences,
+        ...notificationPreferences,
+      };
+    }
+
+    await tenant.save();
+
+    recordAuditLog({
+      tenantId: tenant._id.toString(),
+      user: req.user,
+      action: "UPDATE_TELEGRAM_PREFERENCES",
+      module: "INTEGRATIONS",
+      details: "Updated Telegram notification preferences",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification preferences saved successfully!",
+      data: {
+        adminChatId: tenant.telegramConfig.adminChatId,
+        notificationPreferences: tenant.telegramConfig.notificationPreferences,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/telegram/link-token
+ * Generate single-use linking token for current user
+ */
+router.post("/link-token", async (req, res) => {
+  try {
+    const result = await generateUserLinkToken(req.user._id);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      message: `Linking code generated: ${result.code}. Valid for 15 minutes.`,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/telegram/account
+ * Get current user's Telegram link status
+ */
+router.get("/account", async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        linked: Boolean(user.telegramLinked && user.telegramChatId),
+        telegramUsername: user.telegramUsername || "",
+        telegramChatId: user.telegramChatId || "",
+        telegramLinkedAt: user.telegramLinkedAt || null,
+        pendingToken: user.telegramLinkTokenExpires > new Date() ? user.telegramLinkToken : null,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/telegram/unlink
+ * Unlink current user's Telegram account
+ */
+router.post("/unlink", async (req, res) => {
+  try {
+    await unlinkTelegramAccount(req.user._id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Your Telegram account has been unlinked successfully.",
+      data: { linked: false },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/telegram/logs
+ * Retrieve recent Telegram delivery audit logs
+ */
+router.get("/logs", async (req, res) => {
+  try {
+    const logs = await TelegramLog.find({ tenantId: req.tenantId })
+      .sort({ createdAt: -1 })
+      .limit(25);
+
+    return res.status(200).json({
+      success: true,
+      logs,
+      data: logs,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/telegram/send-summary-now
+ * Manually trigger daily executive summary delivery to admin
+ */
+router.post("/send-summary-now", async (req, res) => {
+  try {
+    await notifyDailyBusinessSummary({ tenantId: req.tenantId });
+
+    return res.status(200).json({
+      success: true,
+      message: "Daily Executive Summary dispatched to authorized administrator(s)!",
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

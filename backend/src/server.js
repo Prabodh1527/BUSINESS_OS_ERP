@@ -34,6 +34,7 @@ import aiRoutes from "./routes/ai.routes.js";
 import auditLogRoutes from "./routes/auditLog.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
 import { initializeConnectedTelegramBots } from "./services/telegramBot.service.js";
+import { startTelegramScheduler } from "./services/telegramScheduler.service.js";
 
 // Connect to Master MongoDB
 
@@ -213,5 +214,6 @@ app.listen(PORT, () => {
   initializeConnectedTelegramBots().catch((err) =>
     console.warn("⚠️ Failed to start Telegram bots on launch:", err.message)
   );
+  startTelegramScheduler();
 });
 

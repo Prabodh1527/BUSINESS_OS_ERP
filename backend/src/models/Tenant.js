@@ -135,6 +135,25 @@ const tenantSchema = new mongoose.Schema(
         type: Date,
         default: null,
       },
+      adminChatId: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      notificationPreferences: {
+        appointments: { type: Boolean, default: true },
+        invoices: { type: Boolean, default: true },
+        tasks: { type: Boolean, default: true },
+        leaves: { type: Boolean, default: true },
+        inventory: { type: Boolean, default: true },
+        purchaseOrders: { type: Boolean, default: true },
+        dailySummary: { type: Boolean, default: true },
+        dailySummaryTime: { type: String, default: "09:00" },
+      },
+      lastDailySummarySent: {
+        type: Date,
+        default: null,
+      },
     },
 
     openTime: {

@@ -40,6 +40,15 @@ const customerSchema = new mongoose.Schema(
       enum: ["ACTIVE", "INACTIVE", "VIP"],
       default: "ACTIVE",
     },
+    telegramChatId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    telegramUsername: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

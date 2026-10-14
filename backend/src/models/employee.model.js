@@ -60,6 +60,15 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    telegramChatId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    telegramUsername: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

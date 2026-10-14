@@ -8,6 +8,7 @@ import Inventory from "../models/inventory.model.js";
 import Tenant from "../models/Tenant.js";
 import { generateInvoicePdfBuffer } from "../utils/invoicePdf.js";
 import { recordAuditLog } from "../utils/auditLogger.js";
+import { notifyInvoiceEvent, notifyInventoryAlert } from "../services/telegramNotifier.service.js";
 
 const router = express.Router();
 
@@ -215,13 +216,28 @@ router.post("/", async (req, res) => {
 
       if (searchFilter._id || searchFilter.sku || searchFilter.name) {
         const qtyToDeduct = Number(item.quantity) || 1;
-        await Inventory.findOneAndUpdate(
+        const updatedStockItem = await Inventory.findOneAndUpdate(
           searchFilter,
           { $inc: { quantity: -qtyToDeduct, stockQuantity: -qtyToDeduct } },
           { new: true }
         );
+
+        if (updatedStockItem && (updatedStockItem.quantity <= (updatedStockItem.minStockThreshold || 5))) {
+          notifyInventoryAlert({
+            tenantId: req.tenantId,
+            item: updatedStockItem,
+            eventType: "LOW_STOCK",
+          }).catch(() => {});
+        }
       }
     }
+
+    // Trigger Telegram invoice notification
+    notifyInvoiceEvent({
+      tenantId: req.tenantId,
+      invoice: newInvoice,
+      eventType: "CREATED",
+    }).catch(() => {});
 
     return res.status(201).json({
       success: true,
@@ -260,6 +276,14 @@ const recordPayment = async (req, res, targetId, amount) => {
 
   await invoice.save();
   await sendPaymentReceiptEmail(invoice, paymentAmount);
+
+  // Trigger Telegram payment notification
+  notifyInvoiceEvent({
+    tenantId: req.tenantId,
+    invoice,
+    eventType: "PAYMENT_RECEIVED",
+    paymentAmount,
+  }).catch(() => {});
 
   return res.status(200).json({
     success: true,
@@ -320,6 +344,14 @@ router.patch("/:id/status", async (req, res) => {
     }
 
     await invoice.save();
+
+    if (status === "PAID") {
+      notifyInvoiceEvent({
+        tenantId: req.tenantId,
+        invoice,
+        eventType: "PAYMENT_RECEIVED",
+      }).catch(() => {});
+    }
 
     return res.status(200).json({
       success: true,

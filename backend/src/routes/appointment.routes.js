@@ -5,6 +5,7 @@ import Appointment from "../models/appointment.model.js";
 import Notification from "../models/notification.model.js";
 import { sendAppointmentEmail } from "../utils/email.js";
 import { getEmployeeIdentity, isEmployeeUser } from "../utils/employeeIdentity.js";
+import { notifyAppointmentEvent } from "../services/telegramNotifier.service.js";
 
 const router = express.Router();
 
@@ -158,6 +159,13 @@ router.post("/", async (req, res) => {
     // Send confirmation email to customer (if email exists)
     sendAppointmentEmail(newAppointment, "CONFIRMED").catch(() => {});
 
+    // Send Telegram notifications
+    notifyAppointmentEvent({
+      tenantId: req.tenantId,
+      appointment: newAppointment,
+      eventType: "CREATED",
+    }).catch(() => {});
+
     return res.status(201).json({
       success: true,
       message: "Appointment booked successfully!",
@@ -217,6 +225,14 @@ router.patch("/:id", async (req, res) => {
       sendAppointmentEmail(updated, updated.status).catch(() => {});
     }
 
+    // Trigger Telegram notification
+    const eventType = req.body.status || (req.body.date || req.body.time ? "RESCHEDULED" : "UPDATED");
+    notifyAppointmentEvent({
+      tenantId: req.tenantId,
+      appointment: updated,
+      eventType,
+    }).catch(() => {});
+
     return res.status(200).json({
       success: true,
       message: "Appointment updated successfully",
@@ -247,6 +263,12 @@ router.delete("/:id", async (req, res) => {
         .status(404)
         .json({ success: false, message: "Appointment not found" });
     }
+
+    notifyAppointmentEvent({
+      tenantId: req.tenantId,
+      appointment: deleted,
+      eventType: "CANCELLED",
+    }).catch(() => {});
 
     return res.status(200).json({
       success: true,

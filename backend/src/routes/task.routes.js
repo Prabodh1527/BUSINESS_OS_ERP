@@ -10,6 +10,7 @@ import {
   getEmployeeIdentity,
   isEmployeeUser,
 } from "../utils/employeeIdentity.js";
+import { notifyTaskEvent } from "../services/telegramNotifier.service.js";
 
 const router = express.Router();
 
@@ -101,6 +102,13 @@ router.post("/", async (req, res) => {
       link: "/employee/tasks",
     }).catch(() => {});
 
+    // Trigger Telegram notification
+    notifyTaskEvent({
+      tenantId: req.tenantId,
+      task: newTask,
+      eventType: "ASSIGNED",
+    }).catch(() => {});
+
     return res.status(201).json({
       success: true,
       message: "Task created successfully",
@@ -128,6 +136,11 @@ router.patch("/:id", async (req, res) => {
       if (!updated) {
         return res.status(404).json({ success: false, message: "Assigned task not found." });
       }
+      notifyTaskEvent({
+        tenantId: req.tenantId,
+        task: updated,
+        eventType: "UPDATED",
+      }).catch(() => {});
       return res.status(200).json({ success: true, message: "Task updated successfully", task: updated, data: updated });
     }
 
@@ -140,6 +153,12 @@ router.patch("/:id", async (req, res) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
+
+    notifyTaskEvent({
+      tenantId: req.tenantId,
+      task: updated,
+      eventType: "UPDATED",
+    }).catch(() => {});
 
     return res.status(200).json({
       success: true,

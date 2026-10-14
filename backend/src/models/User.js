@@ -50,6 +50,32 @@ const userSchema = new mongoose.Schema(
     },
     resetOtp: String,
     resetOtpExpire: Date,
+    telegramChatId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    telegramUsername: {
+      type: String,
+      default: "",
+    },
+    telegramLinked: {
+      type: Boolean,
+      default: false,
+    },
+    telegramLinkedAt: {
+      type: Date,
+      default: null,
+    },
+    telegramLinkToken: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    telegramLinkTokenExpires: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

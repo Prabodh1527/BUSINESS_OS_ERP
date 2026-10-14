@@ -2,6 +2,7 @@ import express from 'express';
 import { protect } from '../middleware/auth.middleware.js';
 import { attachTenantDB } from '../middleware/tenant.middleware.js';
 import Inventory from '../models/inventory.model.js';
+import { notifyInventoryAlert } from '../services/telegramNotifier.service.js';
 
 const router = express.Router();
 
@@ -162,6 +163,14 @@ router.put('/:id', async (req, res) => {
 
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Item not found in workspace' });
+    }
+
+    if (updated.quantity <= (updated.minStockThreshold || 5)) {
+      notifyInventoryAlert({
+        tenantId: req.tenantId,
+        item: updated,
+        eventType: updated.quantity <= 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK',
+      }).catch(() => {});
     }
 
     return res.status(200).json({
