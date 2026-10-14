@@ -58,14 +58,14 @@ export default function Topbar({ business }) {
 
         {/* Left */}
         <div className="min-w-0">
-          <h2 className="truncate font-['Space_Grotesk'] text-xl font-bold text-white">
-            {businessName}
+          <h2 className="truncate font-['Space_Grotesk'] text-lg font-bold text-white">
+            Business OS
           </h2>
 
           <p className="text-xs text-slate-400">
             {user?.role === "EMPLOYEE"
-              ? "Employee Portal • Your daily operations"
-              : "Owner Portal • Manage your business operations"}
+              ? "Employee Portal • Operations"
+              : "Executive Workspace"}
           </p>
         </div>
 

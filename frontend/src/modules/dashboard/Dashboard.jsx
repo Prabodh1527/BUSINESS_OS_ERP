@@ -120,7 +120,7 @@ export default function Dashboard() {
       icon: IndianRupee,
       color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
       accent: "text-emerald-400",
-      link: "/billing",
+      link: "/billing/invoices",
     },
     {
       title: "Pending Receivables",
@@ -129,7 +129,7 @@ export default function Dashboard() {
       icon: Clock,
       color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
       accent: summary.pendingInvoicesAmount > 0 ? "text-amber-400" : "text-slate-400",
-      link: "/billing",
+      link: "/billing/invoices",
     },
     {
       title: "Client Directory",
@@ -138,7 +138,7 @@ export default function Dashboard() {
       icon: Users,
       color: "bg-sky-500/10 text-sky-400 border-sky-500/20",
       accent: "text-sky-400",
-      link: "/customers",
+      link: "/crm",
     },
     {
       title: "Service Bookings",
@@ -194,7 +194,7 @@ export default function Dashboard() {
             </p>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              {loading ? "Syncing Workspace..." : businessName}
+              {loading ? "Syncing Workspace..." : "Business OS"}
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">

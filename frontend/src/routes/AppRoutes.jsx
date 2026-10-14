@@ -305,6 +305,7 @@ export default function AppRoutes() {
 
         {/* CRM */}
         <Route path="/crm" element={<Customers />} />
+        <Route path="/customers" element={<Navigate to="/crm" replace />} />
         <Route path="/crm/add" element={<AddCustomer />} />
         <Route path="/crm/profile" element={<CustomerProfile />} />
         <Route path="/crm/edit" element={<EditCustomer />} />
@@ -322,6 +323,7 @@ export default function AppRoutes() {
         />
 
         {/* Billing */}
+        <Route path="/billing" element={<Navigate to="/billing/invoices" replace />} />
         <Route path="/billing/invoices" element={<Invoices />} />
         <Route path="/billing/create" element={<CreateInvoice />} />
         <Route

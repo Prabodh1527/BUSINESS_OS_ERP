@@ -14,18 +14,22 @@ export default function Sidebar({ business }) {
     <aside className="flex h-screen w-64 flex-col border-r border-slate-800 bg-slate-900/95 backdrop-blur-xl">
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-slate-800 px-5 shrink-0">
-        <div className="min-w-0">
-          <h1 className="truncate font-['Space_Grotesk'] text-xl font-bold tracking-tight text-white">
-            {businessName}
-          </h1>
-
-          <p className="text-[11px] text-slate-500">
-            Business OS
-          </p>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-600/30 font-extrabold text-sm tracking-wider shrink-0">
+            B
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-['Space_Grotesk'] text-base font-extrabold tracking-tight text-white leading-tight">
+              Business OS
+            </h1>
+            <p className="text-[10px] font-medium text-slate-400">
+              Enterprise Platform
+            </p>
+          </div>
         </div>
 
-        <button className="rounded-xl border border-slate-700 p-2 text-slate-400 transition hover:border-indigo-500 hover:bg-slate-800 hover:text-white">
-          <ChevronLeft size={15} />
+        <button className="rounded-xl border border-slate-800 p-1.5 text-slate-400 transition hover:border-indigo-500 hover:bg-slate-800 hover:text-white">
+          <ChevronLeft size={14} />
         </button>
       </div>
 
