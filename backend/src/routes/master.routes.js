@@ -7,7 +7,6 @@ import {
   createMaster,
   updateMaster,
   deleteMaster,
-  seedMasters,
 } from "../controllers/master.controller.js";
 
 const router = express.Router();
@@ -18,10 +17,35 @@ const router = express.Router();
 router.use(protect);
 
 // ==========================================
-// SEED DEFAULT MASTERS
-// POST /api/masters/seed
+// CLEAR ALL MASTERS (WIPE DATA)
+// DELETE /api/masters/clear-all
 // ==========================================
-router.post("/seed", seedMasters);
+router.delete("/clear-all", async (req, res) => {
+  try {
+    const Master = (await import("../models/Master.js")).default;
+    const result = await Master.deleteMany({ tenantId: req.tenantId });
+    return res.status(200).json({
+      success: true,
+      message: "All master data removed.",
+      deletedCount: result.deletedCount,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+router.post("/clear-all", async (req, res) => {
+  try {
+    const Master = (await import("../models/Master.js")).default;
+    const result = await Master.deleteMany({ tenantId: req.tenantId });
+    return res.status(200).json({
+      success: true,
+      message: "All master data removed.",
+      deletedCount: result.deletedCount,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // ==========================================
 // MASTER COLLECTION

@@ -54,7 +54,7 @@ function Masters() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [seeding, setSeeding] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
   const [error, setError] = useState("");
@@ -104,34 +104,23 @@ function Masters() {
     fetchMasters();
   }, []);
 
-  const handleSeedMasters = async () => {
+  const handleClearAllMasters = async () => {
+    if (!window.confirm("Are you sure you want to clear all master entries? This action cannot be undone.")) {
+      return;
+    }
     try {
-      setSeeding(true);
+      setClearing(true);
       setError("");
       setSuccess("");
 
-      const response = await API.post("/masters/seed");
-      const data = response.data?.data || [];
-
-      setMasters(
-        data.map((item) => ({
-          id: item._id,
-          type: item.type,
-          name: item.name,
-          details: item.details || "",
-          value: item.value,
-          isActive: item.isActive,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        }))
-      );
-
-      setSuccess("All standard master categories and entries populated successfully!");
+      await API.delete("/masters/clear-all");
+      setMasters([]);
+      setSuccess("All master entries have been cleared successfully.");
     } catch (err) {
-      console.error("Failed to seed masters:", err);
-      setError(err.response?.data?.message || "Failed to seed standard masters.");
+      console.error("Failed to clear masters:", err);
+      setError(err.response?.data?.message || "Failed to clear masters.");
     } finally {
-      setSeeding(false);
+      setClearing(false);
     }
   };
 
@@ -410,16 +399,18 @@ function Masters() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSeedMasters}
-            disabled={seeding}
-            className="flex items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 font-medium text-xs sm:text-sm text-indigo-400 hover:bg-indigo-500/20 transition-all disabled:opacity-50"
-            title="Populate standard business categories, tax slabs, roles, and services"
-          >
-            {seeding ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            <span>{seeding ? "Loading Defaults..." : "Populate All Standard Masters"}</span>
-          </button>
+          {masters.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearAllMasters}
+              disabled={clearing}
+              className="flex items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 font-medium text-xs sm:text-sm text-rose-400 hover:bg-rose-500/20 transition-all disabled:opacity-50"
+              title="Clear all master entries from your business database"
+            >
+              {clearing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              <span>{clearing ? "Clearing..." : "Clear All Data"}</span>
+            </button>
+          )}
 
           <button
             type="button"
