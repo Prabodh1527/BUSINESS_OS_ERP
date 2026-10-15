@@ -365,6 +365,103 @@ router.patch("/:id/status", async (req, res) => {
 });
 
 // ==========================================
+// 5B. UPDATE INVOICE DETAILS
+// PUT /api/invoices/:id and PATCH /api/invoices/:id
+// ==========================================
+const handleUpdateInvoice = async (req, res) => {
+  try {
+    const invoice = await Invoice.findOne({ _id: req.params.id, tenantId: req.tenantId });
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: "Invoice not found" });
+    }
+
+    const {
+      customer,
+      businessType,
+      items,
+      discountTotal = 0,
+      currency,
+      paymentMethod,
+      upiId,
+      dueDate,
+      notes,
+      terms,
+      status,
+    } = req.body;
+
+    if (customer) {
+      invoice.customer = typeof customer === "string" ? { name: customer } : customer;
+    }
+    if (businessType) invoice.businessType = businessType;
+    if (paymentMethod) invoice.paymentMethod = paymentMethod;
+    if (upiId) invoice.upiId = upiId;
+    if (dueDate !== undefined) invoice.dueDate = dueDate || null;
+    if (notes !== undefined) invoice.notes = notes;
+    if (terms !== undefined) invoice.terms = terms;
+    if (currency) invoice.currency = currency;
+
+    if (items && Array.isArray(items) && items.length > 0) {
+      let subtotal = 0;
+      let taxTotal = 0;
+
+      const processedItems = items.map((item) => {
+        const itemSubtotal = (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0);
+        const itemTax = (itemSubtotal * (Number(item.taxRate) || 0)) / 100;
+        const itemTotal = itemSubtotal + itemTax;
+
+        subtotal += itemSubtotal;
+        taxTotal += itemTax;
+
+        return {
+          ...item,
+          name: item.name || item.description || "Product",
+          total: itemTotal,
+        };
+      });
+
+      invoice.items = processedItems;
+      invoice.subtotal = subtotal;
+      invoice.taxTotal = taxTotal;
+      invoice.discountTotal = Number(discountTotal) || 0;
+      invoice.grandTotal = Math.round((subtotal + taxTotal - invoice.discountTotal) * 100) / 100;
+      invoice.balanceDue = Math.max(0, Math.round((invoice.grandTotal - (invoice.amountPaid || 0)) * 100) / 100);
+      if (invoice.balanceDue === 0 && invoice.grandTotal > 0) {
+        invoice.status = "PAID";
+      } else if (status) {
+        invoice.status = status;
+      }
+    } else if (status) {
+      invoice.status = status;
+    }
+
+    await invoice.save();
+
+    recordAuditLog({
+      tenantId: req.tenantId,
+      user: req.user,
+      action: "UPDATE_INVOICE",
+      module: "INVOICES",
+      targetId: invoice._id.toString(),
+      details: `Updated invoice #${invoice.invoiceNumber} (Total: ₹${invoice.grandTotal})`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Invoice updated successfully",
+      invoice,
+      data: invoice,
+    });
+  } catch (error) {
+    console.error("❌ Error updating invoice:", error);
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+router.put("/:id", handleUpdateInvoice);
+router.patch("/:id", handleUpdateInvoice);
+
+// ==========================================
 // 6. DOWNLOAD INVOICE PDF
 // GET /api/invoices/:id/pdf
 // ==========================================

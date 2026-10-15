@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ShoppingCart,
   Clock,
@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -30,6 +31,7 @@ export default function PurchaseOrders() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     supplier: "",
@@ -39,6 +41,32 @@ export default function PurchaseOrders() {
     notes: "",
     status: "Pending",
   });
+
+  const openCreateModal = () => {
+    setEditingOrder(null);
+    setForm({
+      supplier: "",
+      itemsDescription: "",
+      amount: "",
+      expectedDate: "",
+      notes: "",
+      status: "Pending",
+    });
+    setShowModal(true);
+  };
+
+  const openEditModal = (o) => {
+    setEditingOrder(o);
+    setForm({
+      supplier: o.supplier || "",
+      itemsDescription: o.itemsDescription || "",
+      amount: o.amount || "",
+      expectedDate: o.expectedDate ? o.expectedDate.slice(0, 10) : "",
+      notes: o.notes || "",
+      status: o.status || "Pending",
+    });
+    setShowModal(true);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -64,30 +92,31 @@ export default function PurchaseOrders() {
     loadData();
   }, [loadData]);
 
-  const handleCreate = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.supplier || !form.amount) return;
 
     setSubmitting(true);
     try {
-      const res = await createPurchaseOrder(
-        { ...form, amount: Number(form.amount) },
-        token
-      );
-      if (res.success) {
-        setShowModal(false);
-        setForm({
-          supplier: "",
-          itemsDescription: "",
-          amount: "",
-          expectedDate: "",
-          notes: "",
-          status: "Pending",
-        });
-        await loadData();
+      const payload = { ...form, amount: Number(form.amount) };
+      if (editingOrder) {
+        await updatePurchaseOrder(editingOrder._id, payload, token);
+      } else {
+        await createPurchaseOrder(payload, token);
       }
+      setShowModal(false);
+      setEditingOrder(null);
+      setForm({
+        supplier: "",
+        itemsDescription: "",
+        amount: "",
+        expectedDate: "",
+        notes: "",
+        status: "Pending",
+      });
+      await loadData();
     } catch (err) {
-      alert(err.message || "Failed to create PO");
+      alert(err.message || (editingOrder ? "Failed to update PO" : "Failed to create PO"));
     } finally {
       setSubmitting(false);
     }
@@ -141,7 +170,7 @@ export default function PurchaseOrders() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-500"
           >
             <Plus size={16} />
@@ -289,6 +318,13 @@ export default function PurchaseOrders() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
+                        onClick={() => openEditModal(o)}
+                        className="rounded-lg p-1.5 text-slate-500 transition hover:bg-indigo-500/10 hover:text-indigo-400 mr-1"
+                        title="Edit Purchase Order"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
                         onClick={() => handleDelete(o._id, o.poNumber)}
                         className="rounded-lg p-1.5 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-400"
                         title="Delete"
@@ -304,21 +340,26 @@ export default function PurchaseOrders() {
         )}
       </div>
 
-      {/* Add Modal */}
+      {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white">Create Purchase Order</h2>
+              <h2 className="text-lg font-bold text-white">
+                {editingOrder ? "Edit Purchase Order" : "Create Purchase Order"}
+              </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingOrder(null);
+                }}
                 className="rounded-xl p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="mt-5 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <div>
                 <label className="text-xs font-semibold uppercase text-slate-400">
                   Supplier / Vendor *
@@ -408,7 +449,10 @@ export default function PurchaseOrders() {
               <div className="mt-6 flex justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingOrder(null);
+                  }}
                   className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800"
                 >
                   Cancel
@@ -419,7 +463,13 @@ export default function PurchaseOrders() {
                   className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {submitting && <Loader2 className="animate-spin" size={16} />}
-                  Create Order
+                  {submitting
+                    ? editingOrder
+                      ? "Updating..."
+                      : "Saving..."
+                    : editingOrder
+                    ? "Update Order"
+                    : "Create Order"}
                 </button>
               </div>
             </form>

@@ -11,6 +11,8 @@ import {
   User,
   Calendar,
   Filter,
+  Pencil,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchTasks, createTask, updateTask, deleteTask } from "@/api/tasks.api";
@@ -24,6 +26,7 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [employeeFilter, setEmployeeFilter] = useState("ALL");
@@ -36,6 +39,32 @@ export default function Tasks() {
     priority: "Medium",
     dueDate: new Date().toISOString().slice(0, 10),
   });
+
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setForm({
+      title: "",
+      description: "",
+      assignedTo: "",
+      assignedToEmail: "",
+      priority: "Medium",
+      dueDate: new Date().toISOString().slice(0, 10),
+    });
+    setShowModal(true);
+  };
+
+  const openEditModal = (t) => {
+    setEditingTask(t);
+    setForm({
+      title: t.title || "",
+      description: t.description || "",
+      assignedTo: t.assignedTo || "",
+      assignedToEmail: t.assignedToEmail || "",
+      priority: t.priority || "Medium",
+      dueDate: t.dueDate ? t.dueDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    });
+    setShowModal(true);
+  };
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -68,26 +97,29 @@ export default function Tasks() {
     });
   };
 
-  const handleCreateTask = async (e) => {
+  const handleSubmitTask = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) return;
     try {
       setSubmitting(true);
-      const res = await createTask(form, token);
-      if (res.success) {
-        setShowModal(false);
-        setForm({
-          title: "",
-          description: "",
-          assignedTo: "",
-          assignedToEmail: "",
-          priority: "Medium",
-          dueDate: new Date().toISOString().slice(0, 10),
-        });
-        await loadData();
+      if (editingTask) {
+        await updateTask(editingTask._id, form, token);
+      } else {
+        await createTask(form, token);
       }
+      setShowModal(false);
+      setEditingTask(null);
+      setForm({
+        title: "",
+        description: "",
+        assignedTo: "",
+        assignedToEmail: "",
+        priority: "Medium",
+        dueDate: new Date().toISOString().slice(0, 10),
+      });
+      await loadData();
     } catch (err) {
-      alert(err.message || "Failed to create task");
+      alert(err.message || (editingTask ? "Failed to update task" : "Failed to create task"));
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +184,7 @@ export default function Tasks() {
         </div>
 
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition"
         >
           <Plus size={16} />
@@ -307,13 +339,22 @@ export default function Tasks() {
                     </select>
                   </td>
                   <td>
-                    <button
-                      onClick={() => handleDeleteTask(t._id)}
-                      className="rounded-lg p-2 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400"
-                      title="Delete Task"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(t)}
+                        className="rounded-lg p-2 text-slate-500 hover:bg-indigo-500/10 hover:text-indigo-400"
+                        title="Edit Task"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTask(t._id)}
+                        className="rounded-lg p-2 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400"
+                        title="Delete Task"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -322,18 +363,26 @@ export default function Tasks() {
         )}
       </div>
 
-      {/* Modal: Assign Task */}
+      {/* Modal: Assign / Edit Task */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-lg font-bold text-white">Assign Task to Employee</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white">
+              <h2 className="text-lg font-bold text-white">
+                {editingTask ? "Edit Task Details" : "Assign Task to Employee"}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingTask(null);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateTask} className="space-y-4">
+            <form onSubmit={handleSubmitTask} className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs text-slate-400">
                   Task Title <span className="text-rose-400">*</span>
@@ -404,7 +453,10 @@ export default function Tasks() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingTask(null);
+                  }}
                   className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
                 >
                   Cancel
@@ -412,9 +464,16 @@ export default function Tasks() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
-                  {submitting ? "Assigning..." : "Assign Task"}
+                  {submitting && <Loader2 className="animate-spin" size={15} />}
+                  {submitting
+                    ? editingTask
+                      ? "Updating..."
+                      : "Assigning..."
+                    : editingTask
+                    ? "Update Task"
+                    : "Assign Task"}
                 </button>
               </div>
             </form>

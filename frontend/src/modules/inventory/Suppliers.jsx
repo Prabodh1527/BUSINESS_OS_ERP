@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Users,
   Plus,
@@ -10,9 +10,10 @@ import {
   Trash2,
   X,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchSuppliers, createSupplier, deleteSupplier } from "@/api/suppliers.api";
+import { fetchSuppliers, createSupplier, updateSupplier, deleteSupplier } from "@/api/suppliers.api";
 
 export default function Suppliers() {
   const { token } = useAuth();
@@ -22,6 +23,7 @@ export default function Suppliers() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -31,6 +33,32 @@ export default function Suppliers() {
     address: "",
     status: "Active",
   });
+
+  const openCreateModal = () => {
+    setEditingSupplier(null);
+    setForm({
+      name: "",
+      category: "General",
+      phone: "",
+      email: "",
+      address: "",
+      status: "Active",
+    });
+    setShowModal(true);
+  };
+
+  const openEditModal = (s) => {
+    setEditingSupplier(s);
+    setForm({
+      name: s.name || "",
+      category: s.category || "General",
+      phone: s.phone || "",
+      email: s.email || "",
+      address: s.address || "",
+      status: s.status || "Active",
+    });
+    setShowModal(true);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -50,27 +78,30 @@ export default function Suppliers() {
     loadData();
   }, [loadData]);
 
-  const handleCreate = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) return;
 
     setSubmitting(true);
     try {
-      const res = await createSupplier(form, token);
-      if (res.success) {
-        setShowModal(false);
-        setForm({
-          name: "",
-          category: "General",
-          phone: "",
-          email: "",
-          address: "",
-          status: "Active",
-        });
-        await loadData();
+      if (editingSupplier) {
+        await updateSupplier(editingSupplier._id, form, token);
+      } else {
+        await createSupplier(form, token);
       }
+      setShowModal(false);
+      setEditingSupplier(null);
+      setForm({
+        name: "",
+        category: "General",
+        phone: "",
+        email: "",
+        address: "",
+        status: "Active",
+      });
+      await loadData();
     } catch (err) {
-      alert(err.message || "Failed to create supplier");
+      alert(err.message || (editingSupplier ? "Failed to update supplier" : "Failed to create supplier"));
     } finally {
       setSubmitting(false);
     }
@@ -112,7 +143,7 @@ export default function Suppliers() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-500"
           >
             <Plus size={16} />
@@ -257,6 +288,13 @@ export default function Suppliers() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
+                        onClick={() => openEditModal(s)}
+                        className="rounded-lg p-1.5 text-slate-500 transition hover:bg-indigo-500/10 hover:text-indigo-400 mr-1"
+                        title="Edit Supplier"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
                         onClick={() => handleDelete(s._id, s.name)}
                         className="rounded-lg p-1.5 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-400"
                         title="Delete"
@@ -272,21 +310,26 @@ export default function Suppliers() {
         )}
       </div>
 
-      {/* Add Modal */}
+      {/* Add / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white">Add New Supplier</h2>
+              <h2 className="text-lg font-bold text-white">
+                {editingSupplier ? "Edit Supplier" : "Add New Supplier"}
+              </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingSupplier(null);
+                }}
                 className="rounded-xl p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="mt-5 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <div>
                 <label className="text-xs font-semibold uppercase text-slate-400">
                   Supplier Name *
@@ -323,23 +366,39 @@ export default function Suppliers() {
                     type="text"
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="+91 9876543210"
+                    placeholder="+91 98765 43210"
                     className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold uppercase text-slate-400">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="vendor@example.com"
-                  className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold uppercase text-slate-400">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="vendor@example.com"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase text-slate-400">
+                    Status
+                  </label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -358,7 +417,10 @@ export default function Suppliers() {
               <div className="mt-6 flex justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingSupplier(null);
+                  }}
                   className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800"
                 >
                   Cancel
@@ -369,7 +431,13 @@ export default function Suppliers() {
                   className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {submitting && <Loader2 className="animate-spin" size={16} />}
-                  Save Supplier
+                  {submitting
+                    ? editingSupplier
+                      ? "Updating..."
+                      : "Saving..."
+                    : editingSupplier
+                    ? "Update Supplier"
+                    : "Save Supplier"}
                 </button>
               </div>
             </form>

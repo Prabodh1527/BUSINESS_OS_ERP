@@ -7,9 +7,12 @@ import {
   Download,
   Trash2,
   AlertTriangle,
+  Pencil,
+  X,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchInventory, deleteProduct } from "@/api/inventory.api";
+import { fetchInventory, updateProduct, deleteProduct } from "@/api/inventory.api";
 
 export default function Products() {
   const { token } = useAuth();
@@ -45,6 +48,60 @@ export default function Products() {
       } catch (err) {
         alert(err.message || "Failed to delete product");
       }
+    }
+  };
+
+  // Edit Product Modal State
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    sku: "",
+    category: "General",
+    quantity: 0,
+    unitPrice: 0,
+    costPrice: 0,
+    minStockThreshold: 5,
+    supplier: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEditModal = (p) => {
+    setEditingProduct(p);
+    setEditForm({
+      name: p.name || "",
+      sku: p.sku || "",
+      category: p.category || "General",
+      quantity: Number(p.quantity ?? p.stockQuantity ?? 0),
+      unitPrice: Number(p.price ?? p.unitPrice ?? 0),
+      costPrice: Number(p.costPrice ?? 0),
+      minStockThreshold: Number(p.minStockThreshold ?? p.reorderLevel ?? 5),
+      supplier: p.supplier || "",
+    });
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setSavingEdit(true);
+    try {
+      const payload = {
+        name: editForm.name,
+        sku: editForm.sku,
+        category: editForm.category,
+        quantity: Number(editForm.quantity) || 0,
+        unitPrice: Number(editForm.unitPrice) || 0,
+        price: Number(editForm.unitPrice) || 0,
+        costPrice: Number(editForm.costPrice) || 0,
+        minStockThreshold: Number(editForm.minStockThreshold) || 5,
+        supplier: editForm.supplier,
+      };
+      await updateProduct(editingProduct._id, payload, token);
+      setEditingProduct(null);
+      await loadData();
+    } catch (err) {
+      alert("Failed to update product: " + (err.message || "Unknown error"));
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -261,10 +318,18 @@ export default function Products() {
                       </span>
                     </td>
 
-                    <td className="text-right p-4">
+                    <td className="text-right p-4 space-x-2">
+                      <button
+                        onClick={() => openEditModal(product)}
+                        className="rounded-lg border border-indigo-500/30 p-2 text-indigo-400 hover:bg-indigo-500/10 transition cursor-pointer"
+                        title="Edit Product"
+                      >
+                        <Pencil size={15} />
+                      </button>
                       <button
                         onClick={() => handleDelete(product._id, product.name)}
                         className="rounded-lg border border-rose-500/30 p-2 text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                        title="Delete Product"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -276,6 +341,146 @@ export default function Products() {
           </table>
         )}
       </div>
+
+      {/* Edit Product Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-indigo-500/10 p-2 text-indigo-400">
+                  <Pencil size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Edit Product</h3>
+                  <p className="text-xs text-slate-400">SKU: {editingProduct.sku || "N/A"}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingProduct(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Product Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">SKU</label>
+                  <input
+                    type="text"
+                    value={editForm.sku}
+                    onChange={(e) => setEditForm((p) => ({ ...p, sku: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={editForm.category}
+                    onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Current Stock Quantity</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.quantity}
+                    onChange={(e) => setEditForm((p) => ({ ...p, quantity: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Low Stock Alert Threshold</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.minStockThreshold}
+                    onChange={(e) => setEditForm((p) => ({ ...p, minStockThreshold: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Unit Selling Price (₹) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={editForm.unitPrice}
+                    onChange={(e) => setEditForm((p) => ({ ...p, unitPrice: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Cost Price (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.costPrice}
+                    onChange={(e) => setEditForm((p) => ({ ...p, costPrice: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Supplier / Brand</label>
+                <input
+                  type="text"
+                  value={editForm.supplier}
+                  onChange={(e) => setEditForm((p) => ({ ...p, supplier: e.target.value }))}
+                  placeholder="e.g. L'Oreal Professional"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-slate-800 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
+                >
+                  {savingEdit ? <Loader2 size={13} className="animate-spin" /> : null}
+                  <span>{savingEdit ? "Saving..." : "Save Changes"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

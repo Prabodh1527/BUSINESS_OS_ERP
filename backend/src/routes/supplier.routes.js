@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
 import { attachTenantDB } from "../middleware/tenant.middleware.js";
 import Supplier from "../models/supplier.model.js";
@@ -76,7 +76,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /:id or PATCH /:id
-router.patch("/:id", async (req, res) => {
+const handleUpdateSupplier = async (req, res) => {
   try {
     const updated = await Supplier.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenantId },
@@ -97,7 +97,10 @@ router.patch("/:id", async (req, res) => {
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
-});
+};
+
+router.patch("/:id", handleUpdateSupplier);
+router.put("/:id", handleUpdateSupplier);
 
 // DELETE /api/suppliers/:id
 router.delete("/:id", async (req, res) => {

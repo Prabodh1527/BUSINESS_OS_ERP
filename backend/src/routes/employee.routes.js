@@ -677,7 +677,7 @@ router.delete("/:id", async (req, res) => {
 // 5. UPDATE EMPLOYEE
 // PATCH /api/employees/:id
 // ==========================================
-router.patch("/:id", async (req, res) => {
+const handleUpdateEmployee = async (req, res) => {
   try {
     const updated = await Employee.findOneAndUpdate(
       {
@@ -700,6 +700,23 @@ router.patch("/:id", async (req, res) => {
       });
     }
 
+    // Keep login User record synchronized
+    if (updated.email) {
+      const userUpdates = {};
+      if (req.body.name) userUpdates.name = req.body.name.trim();
+      if (req.body.phone !== undefined) userUpdates.phone = req.body.phone;
+      if (req.body.role) userUpdates.jobTitle = req.body.role;
+      if (req.body.department) userUpdates.department = req.body.department;
+      if (req.body.salary !== undefined) userUpdates.salary = String(req.body.salary);
+
+      if (Object.keys(userUpdates).length > 0) {
+        await User.updateOne(
+          { email: updated.email, tenantId: req.tenantId },
+          { $set: userUpdates }
+        ).catch(() => {});
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "Employee updated successfully.",
@@ -714,6 +731,9 @@ router.patch("/:id", async (req, res) => {
       message: error.message,
     });
   }
-});
+};
+
+router.patch("/:id", handleUpdateEmployee);
+router.put("/:id", handleUpdateEmployee);
 
 export default router;

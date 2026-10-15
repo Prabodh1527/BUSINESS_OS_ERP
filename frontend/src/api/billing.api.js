@@ -50,6 +50,19 @@ export const recordInvoicePayment = async (id, amount, token) => {
   return response.json();
 };
 
+export const updateInvoice = async (id, data, token) => {
+  const response = await fetch(`${API_BASE}/api/invoices/${id}`, {
+    method: "PUT",
+    headers: getHeaders(token),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to update invoice");
+  }
+  return response.json();
+};
+
 export const updateInvoiceStatus = async (id, status, token) => {
   const response = await fetch(`${API_BASE}/api/invoices/${id}/status`, {
     method: "PATCH",

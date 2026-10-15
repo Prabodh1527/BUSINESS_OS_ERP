@@ -16,9 +16,10 @@ import {
   Check,
   ExternalLink,
   Sparkles,
-  Clock,
   IndianRupee,
   Loader2,
+  Pencil,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -46,6 +47,74 @@ export default function Appointments() {
   const [newServicePrice, setNewServicePrice] = useState("");
   const [newServiceDuration, setNewServiceDuration] = useState("30");
   const [newServiceDesc, setNewServiceDesc] = useState("");
+
+  // Edit Appointment Modal State
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [editForm, setEditForm] = useState({
+    customerName: "",
+    customerPhone: "",
+    customerEmail: "",
+    service: "",
+    employee: "",
+    date: "",
+    time: "",
+    duration: 30,
+    amount: 0,
+    status: "SCHEDULED",
+    paymentStatus: "PENDING",
+    notes: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEditAppointmentModal = (apt) => {
+    setEditingAppointment(apt);
+    setEditForm({
+      customerName:
+        apt.customer?.name || (typeof apt.customer === "string" ? apt.customer : ""),
+      customerPhone: apt.customer?.phone || "",
+      customerEmail: apt.customer?.email || "",
+      service: apt.service || "",
+      employee: apt.employee || "",
+      date: apt.date || "",
+      time: apt.time || "",
+      duration: apt.duration || 30,
+      amount: apt.amount || 0,
+      status: apt.status || "SCHEDULED",
+      paymentStatus: apt.paymentStatus || "PENDING",
+      notes: apt.notes || "",
+    });
+  };
+
+  const handleSaveAppointmentEdit = async (e) => {
+    e.preventDefault();
+    if (!editingAppointment) return;
+    setSavingEdit(true);
+    try {
+      const payload = {
+        customer: {
+          name: editForm.customerName,
+          phone: editForm.customerPhone,
+          email: editForm.customerEmail,
+        },
+        service: editForm.service,
+        employee: editForm.employee,
+        date: editForm.date,
+        time: editForm.time,
+        duration: Number(editForm.duration) || 30,
+        amount: Number(editForm.amount) || 0,
+        status: editForm.status,
+        paymentStatus: editForm.paymentStatus,
+        notes: editForm.notes,
+      };
+      await updateAppointment(editingAppointment._id, payload, token);
+      setEditingAppointment(null);
+      await loadAppointments();
+    } catch (err) {
+      alert("Failed to update appointment: " + err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -525,6 +594,13 @@ export default function Appointments() {
                       <MessageSquare size={14} />
                     </button>
                     <button
+                      onClick={() => openEditAppointmentModal(item)}
+                      className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-1.5 text-indigo-400 hover:bg-indigo-500/20 transition cursor-pointer"
+                      title="Edit Appointment"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
                       onClick={() => handleDelete(item._id, item.customer?.name)}
                       className="rounded-lg border border-rose-500/30 p-1.5 text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
                       title="Cancel & Delete"
@@ -706,6 +782,176 @@ export default function Appointments() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── DYNAMIC EDIT APPOINTMENT MODAL ─── */}
+      {editingAppointment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-indigo-500/10 p-2 text-indigo-400">
+                  <Pencil size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Edit Appointment</h3>
+                  <p className="text-xs text-slate-400">ID: {editingAppointment.appointmentId || editingAppointment._id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingAppointment(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAppointmentEdit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Customer Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.customerName}
+                    onChange={(e) => setEditForm((p) => ({ ...p, customerName: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editForm.customerPhone}
+                    onChange={(e) => setEditForm((p) => ({ ...p, customerPhone: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editForm.customerEmail}
+                    onChange={(e) => setEditForm((p) => ({ ...p, customerEmail: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Service</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.service}
+                    onChange={(e) => setEditForm((p) => ({ ...p, service: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Specialist / Staff</label>
+                  <input
+                    type="text"
+                    value={editForm.employee}
+                    onChange={(e) => setEditForm((p) => ({ ...p, employee: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Fee / Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm((p) => ({ ...p, amount: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.date ? editForm.date.slice(0, 10) : ""}
+                    onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Time</label>
+                  <input
+                    type="text"
+                    value={editForm.time}
+                    placeholder="e.g. 10:30 AM"
+                    onChange={(e) => setEditForm((p) => ({ ...p, time: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="CONFIRMED">Confirmed</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Payment Status</label>
+                  <select
+                    value={editForm.paymentStatus}
+                    onChange={(e) => setEditForm((p) => ({ ...p, paymentStatus: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="PAID">Paid</option>
+                    <option value="REFUNDED">Refunded</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Notes / Instructions</label>
+                  <textarea
+                    rows={2}
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
+                    placeholder="Optional notes or client requests..."
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-slate-800 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingAppointment(null)}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
+                >
+                  {savingEdit ? <Loader2 size={13} className="animate-spin" /> : null}
+                  <span>{savingEdit ? "Saving..." : "Save Changes"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

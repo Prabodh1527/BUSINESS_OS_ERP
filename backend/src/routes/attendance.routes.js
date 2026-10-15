@@ -511,4 +511,37 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
+// DELETE /api/attendance/:id (delete attendance punch record)
+router.delete("/:id", async (req, res) => {
+  try {
+    if (isEmployeeUser(req)) {
+      return res.status(403).json({ success: false, message: "Employees cannot delete attendance records." });
+    }
+    const deleted = await Attendance.findOneAndDelete({
+      _id: req.params.id,
+      tenantId: req.tenantId,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Attendance record not found" });
+    }
+
+    recordAuditLog({
+      tenantId: req.tenantId,
+      user: req.user,
+      action: "DELETE_ATTENDANCE",
+      module: "ATTENDANCE",
+      targetId: req.params.id,
+      details: `Deleted attendance record for ${deleted.employeeName || deleted.employeeId} on ${deleted.date}`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance record deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

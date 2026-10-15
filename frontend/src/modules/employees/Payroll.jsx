@@ -26,7 +26,8 @@ import {
   ShieldAlert,
   Loader2,
   RefreshCw,
-  Printer
+  Printer,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchEmployees } from "@/api/employees.api";
@@ -41,7 +42,8 @@ import {
   downloadPayslipPdf,
   fetchPayrollRules,
   updatePayrollRules,
-  createPayroll
+  createPayroll,
+  deletePayroll,
 } from "@/api/payroll.api";
 
 import { fetchLeavePolicy, updateLeavePolicy } from "@/api/leaves.api";
@@ -302,6 +304,26 @@ export default function Payroll() {
       await loadData();
     } catch (err) {
       setError(err.message || "Failed to create payroll entry.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeletePayroll = async (record) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete the payroll entry for ${record.employee} (${record.month})?`
+      )
+    )
+      return;
+    setActionLoading(true);
+    try {
+      await deletePayroll(record._id, token);
+      setSuccessMsg("Payroll record deleted successfully.");
+      await loadData();
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to delete payroll record.");
     } finally {
       setActionLoading(false);
     }
@@ -801,6 +823,16 @@ export default function Payroll() {
                                   <Send size={13} />
                                 </button>
                               )}
+
+                              {/* Delete Payroll Entry */}
+                              <button
+                                onClick={() => handleDeletePayroll(r)}
+                                title="Delete Payroll Entry"
+                                disabled={actionLoading}
+                                className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                              >
+                                <Trash2 size={13} />
+                              </button>
                             </div>
                           </td>
                         </tr>

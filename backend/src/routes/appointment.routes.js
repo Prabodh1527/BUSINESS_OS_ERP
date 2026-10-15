@@ -226,9 +226,9 @@ router.post("/", async (req, res) => {
 
 // ==========================================
 // 4. UPDATE APPOINTMENT (STATUS / DETAILS)
-// PATCH /api/appointments/:id
+// PATCH /api/appointments/:id & PUT /api/appointments/:id
 // ==========================================
-router.patch("/:id", async (req, res) => {
+const handleUpdateAppointment = async (req, res) => {
   try {
     if (isEmployeeUser(req)) {
       const identity = await getEmployeeIdentity(req);
@@ -284,11 +284,13 @@ router.patch("/:id", async (req, res) => {
       message: "Appointment updated successfully",
       appointment: updated,
       data: updated,
-    });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
-});
+};
+
+router.patch("/:id", handleUpdateAppointment);
+router.put("/:id", handleUpdateAppointment);
 
 // ==========================================
 // 5. CANCEL / DELETE APPOINTMENT

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Wallet,
   TrendingDown,
@@ -9,9 +9,10 @@ import {
   Trash2,
   X,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { fetchExpenses, createExpense, deleteExpense } from "@/api/expenses.api";
+import { fetchExpenses, createExpense, updateExpense, deleteExpense } from "@/api/expenses.api";
 
 const CATEGORIES = [
   "Staff & Payroll",
@@ -38,6 +39,7 @@ export default function Expenses() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -48,6 +50,34 @@ export default function Expenses() {
     paymentMethod: "UPI",
     notes: "",
   });
+
+  const openCreateModal = () => {
+    setEditingExpense(null);
+    setForm({
+      title: "",
+      category: "General",
+      amount: "",
+      date: new Date().toISOString().slice(0, 10),
+      status: "Paid",
+      paymentMethod: "UPI",
+      notes: "",
+    });
+    setShowModal(true);
+  };
+
+  const openEditModal = (exp) => {
+    setEditingExpense(exp);
+    setForm({
+      title: exp.title || "",
+      category: exp.category || "General",
+      amount: exp.amount || "",
+      date: exp.date ? exp.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      status: exp.status || "Paid",
+      paymentMethod: exp.paymentMethod || "UPI",
+      notes: exp.notes || "",
+    });
+    setShowModal(true);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -68,31 +98,32 @@ export default function Expenses() {
     loadData();
   }, [loadData]);
 
-  const handleCreate = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim() || !form.amount) return;
 
     setSubmitting(true);
     try {
-      const res = await createExpense(
-        { ...form, amount: Number(form.amount) },
-        token
-      );
-      if (res.success) {
-        setShowModal(false);
-        setForm({
-          title: "",
-          category: "General",
-          amount: "",
-          date: new Date().toISOString().slice(0, 10),
-          status: "Paid",
-          paymentMethod: "UPI",
-          notes: "",
-        });
-        await loadData();
+      const payload = { ...form, amount: Number(form.amount) };
+      if (editingExpense) {
+        await updateExpense(editingExpense._id, payload, token);
+      } else {
+        await createExpense(payload, token);
       }
+      setShowModal(false);
+      setEditingExpense(null);
+      setForm({
+        title: "",
+        category: "General",
+        amount: "",
+        date: new Date().toISOString().slice(0, 10),
+        status: "Paid",
+        paymentMethod: "UPI",
+        notes: "",
+      });
+      await loadData();
     } catch (err) {
-      alert(err.message || "Failed to record expense");
+      alert(err.message || (editingExpense ? "Failed to update expense" : "Failed to record expense"));
     } finally {
       setSubmitting(false);
     }
@@ -164,7 +195,7 @@ export default function Expenses() {
             Export CSV
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-500"
           >
             <Plus size={16} />
@@ -303,6 +334,13 @@ export default function Expenses() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
+                        onClick={() => openEditModal(exp)}
+                        className="rounded-lg p-1.5 text-slate-500 transition hover:bg-indigo-500/10 hover:text-indigo-400 mr-1"
+                        title="Edit Expense"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
                         onClick={() => handleDelete(exp._id, exp.title)}
                         className="rounded-lg p-1.5 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-400"
                         title="Delete"
@@ -318,21 +356,26 @@ export default function Expenses() {
         )}
       </div>
 
-      {/* Add Expense Modal */}
+      {/* Add / Edit Expense Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white">Record Expense</h2>
+              <h2 className="text-lg font-bold text-white">
+                {editingExpense ? "Edit Expense" : "Record Expense"}
+              </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingExpense(null);
+                }}
                 className="rounded-xl p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="mt-5 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <div>
                 <label className="text-xs font-semibold uppercase text-slate-400">
                   Expense Title *
@@ -427,7 +470,10 @@ export default function Expenses() {
               <div className="mt-6 flex justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingExpense(null);
+                  }}
                   className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800"
                 >
                   Cancel
@@ -438,7 +484,13 @@ export default function Expenses() {
                   className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {submitting && <Loader2 className="animate-spin" size={16} />}
-                  Save Expense
+                  {submitting
+                    ? editingExpense
+                      ? "Updating..."
+                      : "Saving..."
+                    : editingExpense
+                    ? "Update Expense"
+                    : "Save Expense"}
                 </button>
               </div>
             </form>

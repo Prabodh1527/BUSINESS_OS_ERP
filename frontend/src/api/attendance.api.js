@@ -116,3 +116,15 @@ export const reviewAttendanceCorrection = async (id, status, token) => {
   }
   return res.json();
 };
+
+export const deleteAttendanceRecord = async (id, token) => {
+  const res = await fetch(`${API_BASE}/api/attendance/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(token),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to delete attendance record");
+  }
+  return res.json();
+};

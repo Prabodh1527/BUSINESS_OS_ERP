@@ -120,8 +120,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PATCH /api/tasks/:id
-router.patch("/:id", async (req, res) => {
+// PATCH /api/tasks/:id & PUT /api/tasks/:id
+const handleUpdateTask = async (req, res) => {
   try {
     const identity = await getEmployeeIdentity(req);
     if (identity) {
@@ -169,7 +169,10 @@ router.patch("/:id", async (req, res) => {
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
-});
+};
+
+router.patch("/:id", handleUpdateTask);
+router.put("/:id", handleUpdateTask);
 
 // DELETE /api/tasks/:id
 router.delete("/:id", async (req, res) => {

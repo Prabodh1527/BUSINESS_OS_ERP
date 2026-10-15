@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
 import { attachTenantDB } from "../middleware/tenant.middleware.js";
 import Expense from "../models/expense.model.js";
@@ -96,8 +96,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PATCH /api/expenses/:id
-router.patch("/:id", async (req, res) => {
+// PATCH /api/expenses/:id & PUT /api/expenses/:id
+const handleUpdateExpense = async (req, res) => {
   try {
     const updated = await Expense.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenantId },
@@ -118,7 +118,10 @@ router.patch("/:id", async (req, res) => {
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
-});
+};
+
+router.patch("/:id", handleUpdateExpense);
+router.put("/:id", handleUpdateExpense);
 
 // DELETE /api/expenses/:id
 router.delete("/:id", async (req, res) => {

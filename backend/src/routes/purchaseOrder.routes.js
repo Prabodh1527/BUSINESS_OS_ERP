@@ -100,8 +100,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PATCH /:id
-router.patch("/:id", async (req, res) => {
+// PATCH /:id & PUT /:id
+const handleUpdatePO = async (req, res) => {
   try {
     const updated = await PurchaseOrder.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenantId },
@@ -128,7 +128,10 @@ router.patch("/:id", async (req, res) => {
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
-});
+};
+
+router.patch("/:id", handleUpdatePO);
+router.put("/:id", handleUpdatePO);
 
 // DELETE /:id
 router.delete("/:id", async (req, res) => {

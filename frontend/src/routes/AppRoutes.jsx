@@ -336,6 +336,14 @@ export default function AppRoutes() {
           path="/billing/invoice-details"
           element={<InvoiceDetails />}
         />
+        <Route
+          path="/billing/invoices/:id"
+          element={<InvoiceDetails />}
+        />
+        <Route
+          path="/billing/invoice-details/:id"
+          element={<InvoiceDetails />}
+        />
         <Route path="/billing/payments" element={<Payments />} />
         <Route path="/billing/expenses" element={<Expenses />} />
 

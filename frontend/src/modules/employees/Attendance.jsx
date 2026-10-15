@@ -15,7 +15,8 @@ import {
   History,
   AlertTriangle,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -26,6 +27,7 @@ import {
   recordAttendance,
   updateAttendanceRecord,
   reviewAttendanceCorrection,
+  deleteAttendanceRecord,
 } from "@/api/attendance.api";
 import { fetchEmployees } from "@/api/employees.api";
 import AttendanceChart from "@/components/charts/AttendanceChart";
@@ -159,6 +161,25 @@ export default function Attendance() {
       setError(err.message || "Failed to update attendance.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteAttendance = async (record) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete the attendance record for ${
+          record.employeeName || record.employeeId
+        } on ${record.date}?`
+      )
+    )
+      return;
+    try {
+      await deleteAttendanceRecord(record._id, token);
+      setSuccessMsg("Attendance record deleted successfully.");
+      await loadData();
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to delete attendance record.");
     }
   };
 
@@ -522,13 +543,22 @@ export default function Attendance() {
                       )}
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => openEditModal(r)}
-                        title="Manual Correction / Edit"
-                        className="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white"
-                      >
-                        <Edit3 size={13} />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openEditModal(r)}
+                          title="Manual Correction / Edit"
+                          className="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white transition"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAttendance(r)}
+                          title="Delete Attendance Record"
+                          className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

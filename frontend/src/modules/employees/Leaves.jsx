@@ -16,7 +16,8 @@ import {
   X,
   Loader2,
   Settings,
-  Calendar
+  Calendar,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchEmployees } from "@/api/employees.api";
@@ -26,7 +27,8 @@ import {
   updateLeaveStatus,
   fetchLeavePolicy,
   updateLeavePolicy,
-  fetchLeaveBalance
+  fetchLeaveBalance,
+  deleteLeave,
 } from "@/api/leaves.api";
 
 export default function Leaves() {
@@ -170,6 +172,23 @@ export default function Leaves() {
       setError(err.message || "Failed to update policy.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteLeave = async (leave) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete this leave record for ${leave.employee} (${leave.from} to ${leave.to})?`
+      )
+    )
+      return;
+    try {
+      await deleteLeave(leave._id, token);
+      setSuccessMsg("Leave record deleted successfully.");
+      await loadData();
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to delete leave record.");
     }
   };
 
@@ -445,24 +464,31 @@ export default function Leaves() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-right">
-                          {l.status === "Pending" ? (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => handleApprove(l._id)}
-                                className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => setRejectingLeave(l)}
-                                className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-rose-500"
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-slate-500">Processed</span>
-                          )}
+                          <div className="flex items-center justify-end gap-1.5">
+                            {l.status === "Pending" ? (
+                              <>
+                                <button
+                                  onClick={() => handleApprove(l._id)}
+                                  className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 transition"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => setRejectingLeave(l)}
+                                  className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-rose-500 transition"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            ) : null}
+                            <button
+                              onClick={() => handleDeleteLeave(l)}
+                              title="Delete Leave Record"
+                              className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

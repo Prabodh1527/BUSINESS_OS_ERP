@@ -14,6 +14,7 @@ import {
   X,
   Clock,
   Archive,
+  Pencil,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -469,6 +470,13 @@ export default function Employees() {
                         title="View Full Profile"
                       >
                         <Eye size={15} className="text-indigo-400" />
+                      </Link>
+                      <Link
+                        to={`/employees/profile?id=${employee._id}`}
+                        className="rounded-lg border border-indigo-500/30 p-2 text-indigo-400 hover:bg-indigo-500/10 transition"
+                        title="Edit Staff Details"
+                      >
+                        <Pencil size={15} />
                       </Link>
                       <button
                         onClick={() => handleDelete(employee._id, employee.name)}

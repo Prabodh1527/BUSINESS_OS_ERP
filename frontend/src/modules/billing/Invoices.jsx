@@ -15,6 +15,7 @@ import {
   Trash2,
   Send,
   MessageSquare,
+  Pencil,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -463,6 +464,13 @@ export default function Invoices() {
                       >
                         <Download size={13} />
                       </button>
+                      <Link
+                        to={`/billing/create?edit=${inv._id}`}
+                        className="inline-flex items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 p-1.5 text-xs text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
+                        title="Edit Invoice"
+                      >
+                        <Pencil size={13} />
+                      </Link>
                       <button
                         onClick={() => setSelectedInvoice(inv)}
                         className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-400 hover:bg-indigo-500/20 transition cursor-pointer"
@@ -545,7 +553,13 @@ export default function Invoices() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h3 className="text-lg font-bold text-white">Invoice Preview</h3>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  to={`/billing/create?edit=${selectedInvoice._id}`}
+                  className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/20 transition"
+                >
+                  <Pencil size={13} /> Edit
+                </Link>
                 <button
                   onClick={() => handleWhatsAppShare(selectedInvoice)}
                   className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition shadow-lg shadow-emerald-600/20"

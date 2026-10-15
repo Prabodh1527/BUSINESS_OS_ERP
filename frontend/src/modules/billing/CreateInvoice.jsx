@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Receipt,
@@ -11,11 +11,13 @@ import {
   FileText,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { createInvoice } from "@/api/billing.api";
+import { createInvoice, updateInvoice, fetchInvoiceById } from "@/api/billing.api";
 import { fetchInventory } from "@/api/inventory.api";
 
 export default function CreateInvoice() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
   const { token } = useAuth();
 
   const [customer, setCustomer] = useState({
@@ -41,6 +43,47 @@ export default function CreateInvoice() {
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Load Invoice if in Edit Mode
+  useEffect(() => {
+    if (!editId || !token) return;
+    const loadInvoiceForEdit = async () => {
+      try {
+        const res = await fetchInvoiceById(editId, token);
+        const inv = res.invoice || res.data || res;
+        if (inv) {
+          setCustomer({
+            name: inv.customer?.name || "",
+            email: inv.customer?.email || "",
+            phone: inv.customer?.phone || "",
+          });
+          if (inv.businessType) setBusinessType(inv.businessType);
+          if (inv.paymentMethod) setPaymentMethod(inv.paymentMethod);
+          if (inv.upiId) setUpiId(inv.upiId);
+          if (inv.dueDate) {
+            setDueDate(new Date(inv.dueDate).toISOString().slice(0, 10));
+          }
+          if (inv.notes) setNotes(inv.notes);
+          if (inv.discountTotal !== undefined) setDiscountTotal(inv.discountTotal);
+          if (Array.isArray(inv.items) && inv.items.length > 0) {
+            setItems(
+              inv.items.map((i) => ({
+                catalogId: i.inventoryId || i._id || "",
+                name: i.name || i.description || "",
+                quantity: Number(i.quantity) || 1,
+                unitPrice: Number(i.unitPrice) || 0,
+                taxRate: Number(i.taxRate) || 0,
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load invoice for editing:", err);
+        setError("Failed to load invoice details for editing.");
+      }
+    };
+    loadInvoiceForEdit();
+  }, [editId, token]);
 
   // Load Inventory Catalog
   useEffect(() => {
@@ -162,10 +205,14 @@ export default function CreateInvoice() {
         })),
       };
 
-      await createInvoice(payload, token);
+      if (editId) {
+        await updateInvoice(editId, payload, token);
+      } else {
+        await createInvoice(payload, token);
+      }
       navigate("/billing/invoices");
     } catch (err) {
-      setError(err.message || "Failed to generate invoice");
+      setError(err.message || (editId ? "Failed to update invoice" : "Failed to generate invoice"));
     } finally {
       setSubmitting(false);
     }
@@ -182,9 +229,13 @@ export default function CreateInvoice() {
           <ArrowLeft size={16} />
           Back to Invoices
         </Link>
-        <h1 className="text-3xl font-bold text-white">Create New Invoice</h1>
+        <h1 className="text-3xl font-bold text-white">
+          {editId ? "Edit Invoice" : "Create New Invoice"}
+        </h1>
         <p className="mt-1 text-slate-400">
-          Generate an invoice, auto-calculate taxes, and sync stock deductions.
+          {editId
+            ? "Modify invoice items, tax rates, payment details, or customer notes."
+            : "Generate an invoice, auto-calculate taxes, and sync stock deductions."}
         </p>
       </div>
 
@@ -463,7 +514,13 @@ export default function CreateInvoice() {
             disabled={submitting}
             className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
           >
-            {submitting ? "Generating..." : "Generate Invoice & Deduct Stock"}
+            {submitting
+              ? editId
+                ? "Updating Invoice..."
+                : "Generating..."
+              : editId
+              ? "Update Invoice"
+              : "Generate Invoice & Deduct Stock"}
           </button>
         </div>
       </form>
