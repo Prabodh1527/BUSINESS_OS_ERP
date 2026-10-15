@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createProduct } from "@/api/inventory.api";
+import API from "@/api/axios";
 
 export default function CreateProduct() {
   const navigate = useNavigate();
@@ -28,6 +29,29 @@ export default function CreateProduct() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState([
+    "Hair Care",
+    "Skin Care",
+    "Styling & Tools",
+    "Retail Supplies",
+    "General Supplies",
+  ]);
+
+  useEffect(() => {
+    if (!token) return;
+    const loadCategories = async () => {
+      try {
+        const res = await API.get("/masters?type=Product Category");
+        if (res.data?.masters?.length > 0) {
+          const names = res.data.masters.map((m) => m.name);
+          setCategoryOptions([...new Set([...names, ...categoryOptions])]);
+        }
+      } catch (err) {
+        console.warn("Could not load category masters:", err);
+      }
+    };
+    loadCategories();
+  }, [token]);
 
   const handleChange = (e) => {
     setFormData({
@@ -146,11 +170,17 @@ export default function CreateProduct() {
               />
               <input
                 name="category"
+                list="product-categories-list"
                 value={formData.category}
                 onChange={handleChange}
                 placeholder="Hair Care, Skin Care..."
                 className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3 pl-10 pr-4 text-white outline-none focus:border-indigo-500"
               />
+              <datalist id="product-categories-list">
+                {categoryOptions.map((cat, idx) => (
+                  <option key={idx} value={cat} />
+                ))}
+              </datalist>
             </div>
           </div>
 

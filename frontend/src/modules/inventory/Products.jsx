@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchInventory, updateProduct, deleteProduct } from "@/api/inventory.api";
+import API from "@/api/axios";
 
 export default function Products() {
   const { token } = useAuth();
@@ -20,13 +21,20 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [categoryMasters, setCategoryMasters] = useState([]);
 
   const loadData = async () => {
     try {
       if (token) {
-        const res = await fetchInventory(token);
+        const [res, mastersRes] = await Promise.all([
+          fetchInventory(token),
+          API.get("/masters?type=Product Category").catch(() => ({ data: { masters: [] } })),
+        ]);
         if (res.success) {
           setProducts(res.inventory || res.data || []);
+        }
+        if (mastersRes.data?.masters?.length > 0) {
+          setCategoryMasters(mastersRes.data.masters.map((m) => m.name));
         }
       }
     } catch (err) {
@@ -107,9 +115,12 @@ export default function Products() {
 
   // Derive unique categories for the filter dropdown
   const categories = useMemo(() => {
-    const set = new Set(products.map((p) => p.category || "General"));
-    return ["ALL", ...Array.from(set)];
-  }, [products]);
+    const set = new Set([
+      ...categoryMasters,
+      ...products.map((p) => p.category || "General"),
+    ]);
+    return ["ALL", ...Array.from(set).filter(Boolean)];
+  }, [products, categoryMasters]);
 
   // Live KPI Calculations
   const totalProducts = products.length;
@@ -391,10 +402,18 @@ export default function Products() {
                   <label className="block text-xs font-medium text-slate-400 mb-1">Category</label>
                   <input
                     type="text"
+                    list="edit-product-categories-list"
                     value={editForm.category}
                     onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value }))}
                     className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
                   />
+                  <datalist id="edit-product-categories-list">
+                    {categories
+                      .filter((c) => c !== "ALL")
+                      .map((cat, idx) => (
+                        <option key={idx} value={cat} />
+                      ))}
+                  </datalist>
                 </div>
               </div>
 

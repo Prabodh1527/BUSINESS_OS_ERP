@@ -284,6 +284,7 @@ const handleUpdateAppointment = async (req, res) => {
       message: "Appointment updated successfully",
       appointment: updated,
       data: updated,
+    });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

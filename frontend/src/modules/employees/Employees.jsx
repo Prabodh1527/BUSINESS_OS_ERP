@@ -23,6 +23,7 @@ import {
   deleteEmployee,
   updateEmployee,
 } from "@/api/employees.api";
+import API from "@/api/axios";
 
 export default function Employees() {
   const navigate = useNavigate();
@@ -45,12 +46,37 @@ export default function Employees() {
     status: "ACTIVE",
   });
 
+  const [rolesMaster, setRolesMaster] = useState([
+    "Store Manager",
+    "Senior Specialist",
+    "Staff Stylist",
+    "Frontdesk / Receptionist",
+    "Inventory Supervisor",
+  ]);
+  const [departmentsMaster, setDepartmentsMaster] = useState([
+    "Operations",
+    "Customer Service",
+    "Inventory & Logistics",
+    "Finance & Accounts",
+    "Marketing & Growth",
+  ]);
+
   const loadEmployees = useCallback(async () => {
     try {
       if (token) {
-        const res = await fetchEmployees(token);
+        const [res, rolesRes, deptRes] = await Promise.all([
+          fetchEmployees(token),
+          API.get("/masters?type=Employee Role").catch(() => ({ data: { masters: [] } })),
+          API.get("/masters?type=Departments").catch(() => ({ data: { masters: [] } })),
+        ]);
         if (res.success) {
           setEmployees(res.employees || res.data || []);
+        }
+        if (rolesRes.data?.masters?.length > 0) {
+          setRolesMaster(rolesRes.data.masters.map((m) => m.name));
+        }
+        if (deptRes.data?.masters?.length > 0) {
+          setDepartmentsMaster(deptRes.data.masters.map((m) => m.name));
         }
       }
     } catch (err) {
@@ -283,12 +309,34 @@ export default function Employees() {
               </label>
               <input
                 name="role"
+                list="employee-roles-list"
                 value={form.role}
                 onChange={handleChange}
-                placeholder="e.g. Senior Stylist, Cashier"
+                placeholder="e.g. Senior Specialist, Store Manager"
                 className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm text-white outline-none focus:border-indigo-500"
                 required
               />
+              <datalist id="employee-roles-list">
+                {rolesMaster.map((r, idx) => (
+                  <option key={idx} value={r} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-slate-400">Department</label>
+              <select
+                name="department"
+                value={form.department}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm text-white outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {departmentsMaster.map((d, idx) => (
+                  <option key={idx} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

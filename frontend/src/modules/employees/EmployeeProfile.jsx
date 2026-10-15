@@ -71,6 +71,21 @@ export default function OwnerEmployeeProfile() {
   const [greetingOccasion, setGreetingOccasion] = useState("BIRTHDAY");
   const [greetingMsg, setGreetingMsg] = useState("");
 
+  const [rolesMaster, setRolesMaster] = useState([
+    "Store Manager",
+    "Senior Specialist",
+    "Staff Stylist",
+    "Frontdesk / Receptionist",
+    "Inventory Supervisor",
+  ]);
+  const [departmentsMaster, setDepartmentsMaster] = useState([
+    "Operations",
+    "Customer Service",
+    "Inventory & Logistics",
+    "Finance & Accounts",
+    "Marketing & Growth",
+  ]);
+
   const [employee, setEmployee] = useState({
     _id: "",
     name: "",
@@ -143,6 +158,22 @@ export default function OwnerEmployeeProfile() {
           bankAccount: data.bankAccount || "",
           bankIfsc: data.bankIfsc || "",
         });
+      }
+
+      // Fetch dynamic masters in parallel
+      try {
+        const [rolesRes, deptRes] = await Promise.all([
+          API.get("/masters?type=Employee Role"),
+          API.get("/masters?type=Departments"),
+        ]);
+        if (rolesRes.data?.masters?.length > 0) {
+          setRolesMaster(rolesRes.data.masters.map((m) => m.name));
+        }
+        if (deptRes.data?.masters?.length > 0) {
+          setDepartmentsMaster(deptRes.data.masters.map((m) => m.name));
+        }
+      } catch (masterErr) {
+        console.warn("Could not load employee masters:", masterErr);
       }
     } catch (err) {
       setError(err.message || "Unable to load employee details.");
@@ -411,12 +442,20 @@ export default function OwnerEmployeeProfile() {
             <div>
               <label className="mb-1 block text-slate-400 font-medium">Job Title / Role</label>
               {editing ? (
-                <input
-                  name="role"
-                  value={employee.role}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-white outline-none focus:border-indigo-500"
-                />
+                <>
+                  <input
+                    name="role"
+                    list="profile-roles-list"
+                    value={employee.role}
+                    onChange={handleChange}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-white outline-none focus:border-indigo-500"
+                  />
+                  <datalist id="profile-roles-list">
+                    {rolesMaster.map((r, idx) => (
+                      <option key={idx} value={r} />
+                    ))}
+                  </datalist>
+                </>
               ) : (
                 <p className="font-semibold text-white p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
                   {employee.role}
@@ -427,12 +466,20 @@ export default function OwnerEmployeeProfile() {
             <div>
               <label className="mb-1 block text-slate-400 font-medium">Department</label>
               {editing ? (
-                <input
-                  name="department"
-                  value={employee.department}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-white outline-none focus:border-indigo-500"
-                />
+                <>
+                  <input
+                    name="department"
+                    list="profile-departments-list"
+                    value={employee.department}
+                    onChange={handleChange}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-white outline-none focus:border-indigo-500"
+                  />
+                  <datalist id="profile-departments-list">
+                    {departmentsMaster.map((d, idx) => (
+                      <option key={idx} value={d} />
+                    ))}
+                  </datalist>
+                </>
               ) : (
                 <p className="font-semibold text-white p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
                   {employee.department}

@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { fetchTasks, createTask, updateTask, deleteTask } from "@/api/tasks.api";
 import { fetchEmployees } from "@/api/employees.api";
+import API from "@/api/axios";
 import StaffSubNav from "@/components/employees/StaffSubNav";
 
 export default function Tasks() {
@@ -66,16 +67,27 @@ export default function Tasks() {
     setShowModal(true);
   };
 
+  const [prioritiesMaster, setPrioritiesMaster] = useState([
+    "Low",
+    "Medium",
+    "High",
+    "Urgent",
+  ]);
+
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
       setLoading(true);
-      const [taskRes, empRes] = await Promise.all([
+      const [taskRes, empRes, priorityRes] = await Promise.all([
         fetchTasks(token),
         fetchEmployees(token),
+        API.get("/masters?type=Task Priority").catch(() => ({ data: { masters: [] } })),
       ]);
       setTasks(taskRes.tasks || taskRes.data || []);
       setEmployees(empRes.employees || empRes.data || []);
+      if (priorityRes.data?.masters?.length > 0) {
+        setPrioritiesMaster(priorityRes.data.masters.map((m) => m.name));
+      }
     } catch (err) {
       console.error("Failed to load tasks:", err);
     } finally {
@@ -420,11 +432,13 @@ export default function Tasks() {
                   <select
                     value={form.priority}
                     onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm text-white outline-none focus:border-indigo-500"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm text-white outline-none focus:border-indigo-500 cursor-pointer"
                   >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
+                    {prioritiesMaster.map((p, idx) => (
+                      <option key={idx} value={p}>
+                        {p}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

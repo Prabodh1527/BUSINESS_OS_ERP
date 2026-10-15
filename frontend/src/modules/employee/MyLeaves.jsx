@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock, FileText, PlusCircle, Trash2, Calendar, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { deleteLeave, fetchLeaves, submitLeave, fetchLeaveBalance } from "@/api/leaves.api";
+import API from "@/api/axios";
 
 const initialForm = () => ({
   type: "Casual Leave",
@@ -21,17 +22,28 @@ export default function MyLeaves() {
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [leaveTypesMaster, setLeaveTypesMaster] = useState([
+    "Casual Leave",
+    "Sick Leave",
+    "Paid Privilege Leave",
+    "Maternity / Paternity",
+    "Compensatory Off",
+  ]);
 
   const loadLeaves = useCallback(async () => {
     if (!token) return;
     try {
       setError("");
-      const [leaveRes, balRes] = await Promise.all([
+      const [leaveRes, balRes, mastersRes] = await Promise.all([
         fetchLeaves(token),
         user?.employeeId ? fetchLeaveBalance(user.employeeId, token) : Promise.resolve({ balance: [] }),
+        API.get("/masters?type=Leave Type").catch(() => ({ data: { masters: [] } })),
       ]);
       setHistory(leaveRes.leaves || leaveRes.data || []);
       setBalances(balRes.balance || balRes.data || []);
+      if (mastersRes.data?.masters?.length > 0) {
+        setLeaveTypesMaster(mastersRes.data.masters.map((m) => m.name));
+      }
     } catch (loadError) {
       setError(loadError.message || "Unable to load leave requests.");
     } finally {
@@ -158,13 +170,11 @@ export default function MyLeaves() {
                   </option>
                 ))
               ) : (
-                <>
-                  <option>Casual Leave</option>
-                  <option>Sick Leave</option>
-                  <option>Paid Vacation</option>
-                  <option>Emergency Leave</option>
-                  <option>Unpaid Leave</option>
-                </>
+                leaveTypesMaster.map((t, idx) => (
+                  <option key={idx} value={t}>
+                    {t}
+                  </option>
+                ))
               )}
             </select>
           </div>

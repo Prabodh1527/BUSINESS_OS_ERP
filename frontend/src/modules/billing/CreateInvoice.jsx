@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { createInvoice, updateInvoice, fetchInvoiceById } from "@/api/billing.api";
 import { fetchInventory } from "@/api/inventory.api";
+import API from "@/api/axios";
 
 export default function CreateInvoice() {
   const navigate = useNavigate();
@@ -43,6 +44,43 @@ export default function CreateInvoice() {
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const [paymentMethodsList, setPaymentMethodsList] = useState([
+    { name: "UPI Quick Pay", code: "UPI" },
+    { name: "Credit / Debit Card", code: "CARD" },
+    { name: "Cash", code: "CASH" },
+    { name: "Bank Transfer", code: "BANK_TRANSFER" },
+  ]);
+  const [taxMasters, setTaxMasters] = useState([0, 5, 12, 18, 28]);
+
+  // Load Payment Methods and Tax Masters
+  useEffect(() => {
+    if (!token) return;
+    const loadMasters = async () => {
+      try {
+        const [pmRes, taxRes] = await Promise.all([
+          API.get("/masters?type=Payment Method"),
+          API.get("/masters?type=Tax"),
+        ]);
+        if (pmRes.data?.masters?.length > 0) {
+          setPaymentMethodsList(pmRes.data.masters);
+        }
+        if (taxRes.data?.masters?.length > 0) {
+          const rates = taxRes.data.masters.map((m) => {
+            if (m.value !== null && m.value !== undefined && !isNaN(Number(m.value))) {
+              return Number(m.value);
+            }
+            const match = m.name?.match(/\d+/);
+            return match ? Number(match[0]) : 0;
+          });
+          setTaxMasters([...new Set(rates)].sort((a, b) => a - b));
+        }
+      } catch (err) {
+        console.warn("Could not load invoice masters:", err);
+      }
+    };
+    loadMasters();
+  }, [token]);
 
   // Load Invoice if in Edit Mode
   useEffect(() => {
@@ -308,10 +346,14 @@ export default function CreateInvoice() {
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-white outline-none focus:border-indigo-500 text-sm"
               >
-                <option value="UPI">UPI Quick Pay</option>
-                <option value="CARD">Card</option>
-                <option value="CASH">Cash</option>
-                <option value="BANK_TRANSFER">Bank Transfer</option>
+                {paymentMethodsList.map((pm, idx) => {
+                  const val = pm.code || pm.name;
+                  return (
+                    <option key={pm._id || idx} value={val}>
+                      {pm.name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -431,11 +473,19 @@ export default function CreateInvoice() {
                   <input
                     type="number"
                     min="0"
+                    list="tax-rates-list"
                     placeholder="Tax %"
                     value={item.taxRate}
                     onChange={(e) => handleItemChange(index, "taxRate", e.target.value)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-xs text-center text-white outline-none focus:border-indigo-500"
                   />
+                  <datalist id="tax-rates-list">
+                    {taxMasters.map((rate) => (
+                      <option key={rate} value={rate}>
+                        {rate}% GST
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
 
                 {/* Remove */}

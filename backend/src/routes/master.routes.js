@@ -7,6 +7,7 @@ import {
   createMaster,
   updateMaster,
   deleteMaster,
+  seedMasters,
 } from "../controllers/master.controller.js";
 
 const router = express.Router();
@@ -15,6 +16,12 @@ const router = express.Router();
 // PROTECT ALL MASTER ROUTES
 // ==========================================
 router.use(protect);
+
+// ==========================================
+// SEED DEFAULT MASTERS
+// POST /api/masters/seed
+// ==========================================
+router.post("/seed", seedMasters);
 
 // ==========================================
 // MASTER COLLECTION

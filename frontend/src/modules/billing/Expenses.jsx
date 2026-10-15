@@ -13,8 +13,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchExpenses, createExpense, updateExpense, deleteExpense } from "@/api/expenses.api";
+import API from "@/api/axios";
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   "Staff & Payroll",
   "Utilities",
   "Inventory & Supplies",
@@ -25,9 +26,13 @@ const CATEGORIES = [
   "General",
 ];
 
+const DEFAULT_METHODS = ["UPI", "Card", "Cash", "Bank Transfer"];
+
 export default function Expenses() {
   const { token } = useAuth();
   const [expenses, setExpenses] = useState([]);
+  const [categoriesList, setCategoriesList] = useState(DEFAULT_CATEGORIES);
+  const [paymentMethodsList, setPaymentMethodsList] = useState(DEFAULT_METHODS);
   const [stats, setStats] = useState({
     totalExpenses: 0,
     thisMonthTotal: 0,
@@ -82,13 +87,28 @@ export default function Expenses() {
   const loadData = useCallback(async () => {
     try {
       if (!token) return;
-      const res = await fetchExpenses(token);
+      const [res, mastersCatRes, mastersPayRes] = await Promise.all([
+        fetchExpenses(token),
+        API.get("/masters?type=Expense Category").catch(() => null),
+        API.get("/masters?type=Payment Method").catch(() => null),
+      ]);
+
       if (res.success) {
         setExpenses(res.expenses || res.data || []);
         if (res.stats) setStats(res.stats);
       }
+
+      if (mastersCatRes?.data?.data?.length > 0) {
+        const names = mastersCatRes.data.data.map((m) => m.name);
+        setCategoriesList(Array.from(new Set([...names, ...DEFAULT_CATEGORIES])));
+      }
+
+      if (mastersPayRes?.data?.data?.length > 0) {
+        const methods = mastersPayRes.data.data.map((m) => m.name);
+        setPaymentMethodsList(Array.from(new Set([...methods, ...DEFAULT_METHODS])));
+      }
     } catch (err) {
-      console.error("Failed to load expenses:", err);
+      console.error("Failed to load expenses or masters:", err);
     } finally {
       setLoading(false);
     }
@@ -269,7 +289,7 @@ export default function Expenses() {
           className="rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-300 outline-none focus:border-indigo-500"
         >
           <option value="ALL">All Categories</option>
-          {CATEGORIES.map((cat) => (
+          {categoriesList.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>
@@ -400,7 +420,7 @@ export default function Expenses() {
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
                     className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500"
                   >
-                    {CATEGORIES.map((cat) => (
+                    {categoriesList.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
                       </option>
@@ -444,12 +464,13 @@ export default function Expenses() {
                   <select
                     value={form.paymentMethod}
                     onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-500"
                   >
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Card</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
+                    {paymentMethodsList.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

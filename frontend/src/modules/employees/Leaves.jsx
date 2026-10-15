@@ -30,6 +30,7 @@ import {
   fetchLeaveBalance,
   deleteLeave,
 } from "@/api/leaves.api";
+import API from "@/api/axios";
 
 export default function Leaves() {
   const { token } = useAuth();
@@ -59,18 +60,30 @@ export default function Leaves() {
   const [rejectingLeave, setRejectingLeave] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
 
+  const [leaveTypesMaster, setLeaveTypesMaster] = useState([
+    "Casual Leave",
+    "Sick Leave",
+    "Paid Privilege Leave",
+    "Maternity / Paternity",
+    "Compensatory Off",
+  ]);
+
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
       setError("");
-      const [leaveRes, empRes, policyRes] = await Promise.all([
+      const [leaveRes, empRes, policyRes, mastersRes] = await Promise.all([
         fetchLeaves(token),
         fetchEmployees(token),
         fetchLeavePolicy(token),
+        API.get("/masters?type=Leave Type").catch(() => ({ data: { masters: [] } })),
       ]);
       setLeaves(leaveRes.leaves || leaveRes.data || []);
       setEmployees(empRes.employees || empRes.data || []);
       setPolicy(policyRes.policy || policyRes.data || null);
+      if (mastersRes.data?.masters?.length > 0) {
+        setLeaveTypesMaster(mastersRes.data.masters.map((m) => m.name));
+      }
     } catch (loadError) {
       setError(loadError.message || "Unable to load leave management data.");
     } finally {
@@ -736,13 +749,19 @@ export default function Leaves() {
                 <select
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-white outline-none focus:border-indigo-500"
+                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-white outline-none focus:border-indigo-500 cursor-pointer"
                 >
-                  {(policy?.leaveTypes || []).map((t, idx) => (
-                    <option key={idx} value={t.type}>
-                      {t.type} {t.isPaid ? "(Paid)" : "(Unpaid/LOP)"}
-                    </option>
-                  ))}
+                  {policy?.leaveTypes && policy.leaveTypes.length > 0
+                    ? policy.leaveTypes.map((t, idx) => (
+                        <option key={idx} value={t.type}>
+                          {t.type} {t.isPaid ? "(Paid)" : "(Unpaid/LOP)"}
+                        </option>
+                      ))
+                    : leaveTypesMaster.map((t, idx) => (
+                        <option key={idx} value={t}>
+                          {t}
+                        </option>
+                      ))}
                 </select>
               </div>
 

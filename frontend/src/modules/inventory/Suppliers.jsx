@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetchSuppliers, createSupplier, updateSupplier, deleteSupplier } from "@/api/suppliers.api";
+import API from "@/api/axios";
 
 export default function Suppliers() {
   const { token } = useAuth();
@@ -60,12 +61,27 @@ export default function Suppliers() {
     setShowModal(true);
   };
 
+  const [categoryMasters, setCategoryMasters] = useState([
+    "Direct Manufacturer",
+    "Authorized Wholesaler",
+    "Equipment Vendor",
+    "Local Packaging Supplier",
+    "General Supplies",
+  ]);
+
   const loadData = useCallback(async () => {
     try {
       if (!token) return;
-      const res = await fetchSuppliers(token);
+      const [res, mastersRes] = await Promise.all([
+        fetchSuppliers(token),
+        API.get("/masters?type=Supplier Category").catch(() => ({ data: { masters: [] } })),
+      ]);
       if (res.success) {
         setSuppliers(res.suppliers || res.data || []);
+      }
+      if (mastersRes.data?.masters?.length > 0) {
+        const names = mastersRes.data.masters.map((m) => m.name);
+        setCategoryMasters([...new Set([...names, ...categoryMasters])]);
       }
     } catch (err) {
       console.error("Failed to load suppliers:", err);
@@ -351,11 +367,17 @@ export default function Suppliers() {
                   </label>
                   <input
                     type="text"
+                    list="supplier-categories-list"
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    placeholder="e.g. Hair Care, Skin Care"
+                    placeholder="e.g. Authorized Wholesaler, Equipment Vendor"
                     className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500"
                   />
+                  <datalist id="supplier-categories-list">
+                    {categoryMasters.map((cat, idx) => (
+                      <option key={idx} value={cat} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div>

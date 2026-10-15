@@ -20,11 +20,17 @@ import API from "@/api/axios";
 const masterTypes = [
   "Services",
   "Product Category",
+  "Expense Category",
   "Employee Role",
+  "Departments",
   "Payment Method",
   "Appointment Status",
   "Leave Type",
   "Tax",
+  "Supplier Category",
+  "Units of Measurement",
+  "Customer Segment",
+  "Task Priority",
   "Birthday & Anniversary Wishes",
 ];
 
@@ -48,6 +54,7 @@ function Masters() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
   const [error, setError] = useState("");
@@ -96,6 +103,37 @@ function Masters() {
   useEffect(() => {
     fetchMasters();
   }, []);
+
+  const handleSeedMasters = async () => {
+    try {
+      setSeeding(true);
+      setError("");
+      setSuccess("");
+
+      const response = await API.post("/masters/seed");
+      const data = response.data?.data || [];
+
+      setMasters(
+        data.map((item) => ({
+          id: item._id,
+          type: item.type,
+          name: item.name,
+          details: item.details || "",
+          value: item.value,
+          isActive: item.isActive,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        }))
+      );
+
+      setSuccess("All standard master categories and entries populated successfully!");
+    } catch (err) {
+      console.error("Failed to seed masters:", err);
+      setError(err.response?.data?.message || "Failed to seed standard masters.");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   // ==========================================
   // FORM
@@ -371,14 +409,27 @@ function Masters() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddForm}
-          className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white shadow-lg shadow-indigo-900/20 transition-all hover:bg-indigo-500"
-        >
-          <Plus size={18} />
-          Add Master
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSeedMasters}
+            disabled={seeding}
+            className="flex items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 font-medium text-xs sm:text-sm text-indigo-400 hover:bg-indigo-500/20 transition-all disabled:opacity-50"
+            title="Populate standard business categories, tax slabs, roles, and services"
+          >
+            {seeding ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            <span>{seeding ? "Loading Defaults..." : "Populate All Standard Masters"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={openAddForm}
+            className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-sm text-white shadow-lg shadow-indigo-900/20 transition-all hover:bg-indigo-500"
+          >
+            <Plus size={18} />
+            Add Master
+          </button>
+        </div>
       </div>
 
       {/* ALERTS */}
