@@ -133,7 +133,14 @@ export default function Appointments() {
 
   useEffect(() => {
     loadAppointments();
-  }, [loadAppointments]);
+    if (token) {
+      fetchBookingServices(token)
+        .then((res) => {
+          if (res.success && res.data) setServicesList(res.data);
+        })
+        .catch(() => {});
+    }
+  }, [loadAppointments, token]);
 
   // Live KPI Stats
   const stats = useMemo(() => {
@@ -846,10 +853,18 @@ export default function Appointments() {
                   <input
                     type="text"
                     required
+                    list="apt-services-list"
                     value={editForm.service}
                     onChange={(e) => setEditForm((p) => ({ ...p, service: e.target.value }))}
                     className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
                   />
+                  <datalist id="apt-services-list">
+                    {servicesList.map((svc, idx) => (
+                      <option key={idx} value={svc.name}>
+                        {svc.name} (₹{svc.price})
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
 
                 <div>

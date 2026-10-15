@@ -151,6 +151,7 @@ export const getMasters = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: masters,
+      masters,
     });
   } catch (error) {
     console.error("❌ Get Masters Error:", error);
@@ -196,6 +197,7 @@ export const seedMasters = async (req, res) => {
       success: true,
       message: "Standard master records seeded successfully.",
       data: masters,
+      masters,
     });
   } catch (error) {
     console.error("❌ Seed Masters Error:", error);

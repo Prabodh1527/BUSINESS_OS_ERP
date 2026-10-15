@@ -52,23 +52,38 @@ router.get("/:slug", async (req, res) => {
       status: "Active",
     }).select("name position employeeId");
 
-    // Dynamic business services from tenant configuration
+    // Dynamic business services from Masters or tenant configuration
     const defaultServices = [
       { id: "s1", name: "Executive Consultation", duration: 45, price: 1500, description: "One-on-one session with our senior specialist." },
       { id: "s2", name: "Standard Service Appointment", duration: 30, price: 800, description: "Full comprehensive business service session." },
       { id: "s3", name: "Quick Follow-up / Review", duration: 20, price: 500, description: "Status check and operational assessment." },
     ];
 
-    const services =
-      tenant.bookingServices && tenant.bookingServices.length > 0
-        ? tenant.bookingServices.map((s, idx) => ({
-            id: s._id ? s._id.toString() : `s_${idx}`,
-            name: s.name,
-            duration: s.duration || 30,
-            price: s.price || 0,
-            description: s.description || "",
-          }))
-        : defaultServices;
+    const Master = (await import("../models/Master.js")).default;
+    const masterServices = await Master.find({
+      tenantId: tenant._id.toString(),
+      type: "Services",
+      isActive: true,
+    });
+
+    let services = defaultServices;
+    if (masterServices && masterServices.length > 0) {
+      services = masterServices.map((m) => ({
+        id: m._id.toString(),
+        name: m.name,
+        duration: m.value?.duration || 30,
+        price: m.value?.price || 0,
+        description: m.details || "",
+      }));
+    } else if (tenant.bookingServices && tenant.bookingServices.length > 0) {
+      services = tenant.bookingServices.map((s, idx) => ({
+        id: s._id ? s._id.toString() : `s_${idx}`,
+        name: s.name,
+        duration: s.duration || 30,
+        price: s.price || 0,
+        description: s.description || "",
+      }));
+    }
 
     const timeSlots = [
       "09:30 AM",

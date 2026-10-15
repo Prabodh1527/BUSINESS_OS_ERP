@@ -76,6 +76,23 @@ router.get("/", async (req, res) => {
 // ==========================================
 router.get("/services", async (req, res) => {
   try {
+    const Master = (await import("../models/Master.js")).default;
+    const masterServices = await Master.find({
+      tenantId: req.tenantId,
+      type: "Services",
+      isActive: true,
+    });
+
+    if (masterServices && masterServices.length > 0) {
+      const services = masterServices.map((m) => ({
+        name: m.name,
+        duration: m.value?.duration || 30,
+        price: m.value?.price || 0,
+        description: m.details || "",
+      }));
+      return res.status(200).json({ success: true, data: services });
+    }
+
     const tenant = (await Tenant.findById(req.tenantId)) || (await Tenant.findOne({ ownerId: req.user?._id }));
     const defaultServices = [
       { name: "Executive Consultation", duration: 45, price: 1500, description: "One-on-one session with our senior specialist." },
@@ -104,6 +121,25 @@ router.put("/services", async (req, res) => {
 
     tenant.bookingServices = services;
     await tenant.save();
+
+    // Synchronize to Masters collection
+    const Master = (await import("../models/Master.js")).default;
+    for (const svc of services) {
+      if (svc.name) {
+        await Master.findOneAndUpdate(
+          { tenantId: req.tenantId, type: "Services", name: svc.name },
+          {
+            tenantId: req.tenantId,
+            type: "Services",
+            name: svc.name,
+            details: svc.description || `₹${svc.price || 0} • ${svc.duration || 30} mins`,
+            value: { price: Number(svc.price) || 0, duration: Number(svc.duration) || 30 },
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        ).catch(() => {});
+      }
+    }
 
     return res.status(200).json({
       success: true,
