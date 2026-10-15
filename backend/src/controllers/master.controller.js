@@ -36,14 +36,6 @@ export const getMasters = async (req, res) => {
     });
   }
 };
-  } catch (error) {
-    console.error("❌ Seed Masters Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to seed standard masters.",
-    });
-  }
-};
 
 // ==========================================
 // CREATE MASTER
